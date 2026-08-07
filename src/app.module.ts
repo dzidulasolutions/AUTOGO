@@ -1,3 +1,4 @@
+import { DatabaseModule } from './database/database.module';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -13,6 +14,7 @@ import { ConfigModule } from '@nestjs/config';
         abortEarly: false, // affiche toutes les erreurs, pas juste la premiere
       },
     }),
+    DatabaseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
