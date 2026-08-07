@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envValidationSchema } from './config/env.validation';
 import { ConfigModule } from '@nestjs/config';
+import { LoggerModule } from 'nestjs-pino';
 
 @Module({
   imports: [
@@ -12,6 +13,16 @@ import { ConfigModule } from '@nestjs/config';
       validationSchema: envValidationSchema,
       validationOptions: {
         abortEarly: false, // affiche toutes les erreurs, pas juste la premiere
+      },
+    }),
+    // Pino bibliothèque de logging pour Node.js. En gros, elle sert à afficher et enregistrer ce qui se passe dans ton application.
+    LoggerModule.forRoot({
+      pinoHttp: {
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? { target: 'pino-pretty' }
+            : undefined,
+        level: process.env.NODE_ENV !== 'production' ? 'debug' : 'info',
       },
     }),
     DatabaseModule,
