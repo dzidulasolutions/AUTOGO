@@ -17,25 +17,22 @@ jobs:
       - name: Installation de Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Installation des dependances
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
       - name: Generation du client Prisma
         run: npx prisma generate
+        env:
+          DATABASE_URL: 'postgresql://user:pass@localhost:5432/db'
+
+      - name: Lint
+        run: npm run lint
 
       - name: Tests unitaires
         run: npm run test
 
       - name: Build
         run: npm run build
-        
-      - name: Generation du client Prisma
-        run: npx prisma generate
-        env:
-          DATABASE_URL: "postgresql://user:pass@localhost:5432/db"
