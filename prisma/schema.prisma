@@ -2,8 +2,90 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
   moduleFormat = "cjs"
+}
+
+model Role {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+
+  users       User[] // relation inverse : liste des utilisateurs ayant ce role
+  permissions RolePermission[] // relation inverse vers la table de liaison, pas directement vers Permission
+
+  createdAt DateTime @default(now()) // rempli automatiquement a la creation, jamais modifie manuellement
+  updatedAt DateTime @updatedAt
+
+  @@map("roles") // convention SQL : snake_case pluriel, alors que le modele Prisma reste en PascalCase singulier
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  key         String  @unique // convention "ressource:action", ex: "clients:create" — lisible et filtrable par prefixe
+  description String?
+
+  roles RolePermission[]
+
+  createdAt DateTime @default(now())
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId]) // cle primaire composite : empeche un doublon role/permission au niveau base de donnees
+  @@map("role_permissions")
+}
+
+model User {
+  id       String  @id @default(uuid())
+  email    String  @unique
+  phone    String? @unique
+  password String // hash argon2, jamais le mot de passe en clair
+
+  firstName String
+  lastName  String
+
+  status        UserStatus @default(ACTIVE)
+  emailVerified Boolean    @default(false)
+  phoneVerified Boolean    @default(false)
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deletedAt DateTime? // soft delete : jamais de suppression physique d'un utilisateur
+  @@map("users")
+}
+
+model RefreshToken {
+  id     String @id @default(uuid())
+  token  String @unique // le refresh token est lui-meme hashe avant stockage, jamais en clair
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  familyId String // regroupe tous les tokens issus d'une meme session/rotation — cle pour la detection de reutilisation (tache 1.15)
+  revoked  Boolean @default(false)
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
 }

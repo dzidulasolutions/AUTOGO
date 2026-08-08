@@ -14,4 +14,8 @@ export const envValidationSchema = Joi.object({
   REDIS_URL: Joi.string().uri().required(),
 
   JWT_SECRET: Joi.string().min(32).required(),
+
+  SUPER_ADMIN_EMAIL: Joi.string().email().required(),
+
+  SUPER_ADMIN_PASSWORD: Joi.string().min(12).required(),
 });
