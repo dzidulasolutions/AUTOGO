@@ -5,6 +5,8 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { Reflector } from '@nestjs/core';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true }); // bufferLogs: true permet de stocker les logs dans un buffer avant que le logger ne soit initialisé, ce qui est utile pour capturer les logs générés pendant le démarrage de l'application.
@@ -18,6 +20,10 @@ async function bootstrap() {
   );
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  const reflector = app.get(Reflector);
+  app.useGlobalGuards(new JwtAuthGuard(reflector));
+
   const config = new DocumentBuilder()
     .setTitle('AuTogo API')
     .setDescription('API backend pour la plateforme de microfinance AuTogo')
@@ -29,6 +35,7 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
+
 bootstrap().catch((error) => {
   console.error("Erreur au demarrage de l'application", error);
   process.exit(1);
