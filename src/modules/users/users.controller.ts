@@ -11,6 +11,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 
 @ApiTags('users')
 @Controller('users')
@@ -42,6 +43,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @RequirePermissions('users:delete')
   @ApiOperation({ summary: 'Desactiver un utilisateur (soft delete)' })
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
