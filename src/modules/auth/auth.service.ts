@@ -62,4 +62,54 @@ export class AuthService {
       user: { id: userId, email, role: roleName },
     };
   }
+
+  async refresh(rawToken: string) {
+    const hashedToken = hashToken(rawToken);
+
+    const existingToken = await this.prisma.refreshToken.findUnique({
+      where: { token: hashedToken },
+      include: { user: { include: { role: true } } },
+    });
+
+    if (!existingToken) {
+      throw new UnauthorizedException('Refresh token invalide');
+    }
+
+    // Detection de reutilisation : ce token a deja ete consomme une fois
+    if (existingToken.revoked) {
+      await this.prisma.refreshToken.updateMany({
+        where: { familyId: existingToken.familyId },
+        data: { revoked: true },
+      });
+      throw new UnauthorizedException(
+        'Session compromise detectee, toutes les sessions ont ete revoquees',
+      );
+    }
+
+    if (existingToken.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expire');
+    }
+
+    // Rotation : on revoque l'ancien avant d'en emettre un nouveau
+    await this.prisma.refreshToken.update({
+      where: { id: existingToken.id },
+      data: { revoked: true },
+    });
+
+    return this.issueTokens(
+      existingToken.user.id,
+      existingToken.user.email,
+      existingToken.user.role.name,
+      existingToken.familyId, // meme famille conservee
+    );
+  }
+
+  async logout(rawToken: string) {
+    const hashedToken = hashToken(rawToken);
+    await this.prisma.refreshToken.updateMany({
+      where: { token: hashedToken },
+      data: { revoked: true },
+    });
+    return { message: 'Deconnexion reussie' };
+  }
 }
