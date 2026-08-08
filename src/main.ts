@@ -2,10 +2,22 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger } from 'nestjs-pino';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ValidationPipe } from '@nestjs/common';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true }); // bufferLogs: true permet de stocker les logs dans un buffer avant que le logger ne soit initialisé, ce qui est utile pour capturer les logs générés pendant le démarrage de l'application.
   app.useLogger(app.get(Logger));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // supprime automatiquement les champs non declares dans le DTO
+      forbidNonWhitelisted: true, // rejette la requete si un champ inconnu est envoye, plutot que de l'ignorer silencieusement
+      transform: true, // convertit automatiquement les types (ex: string "123" -> number 123)
+    }),
+  );
+  app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalFilters(new HttpExceptionFilter());
   const config = new DocumentBuilder()
     .setTitle('AuTogo API')
     .setDescription('API backend pour la plateforme de microfinance AuTogo')
