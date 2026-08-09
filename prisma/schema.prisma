@@ -64,17 +64,21 @@ model User {
   emailVerified Boolean    @default(false)
   phoneVerified Boolean    @default(false)
 
-  verificationCode       String?
+  verificationCode          String?
   verificationCodeExpiresAt DateTime?
-  
+
+  resetPasswordToken     String?
+  resetPasswordExpiresAt DateTime?
+
   roleId String
   role   Role   @relation(fields: [roleId], references: [id])
 
   refreshTokens RefreshToken[]
 
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime? // soft delete : jamais de suppression physique d'un utilisateur
+
   @@map("users")
 }
 

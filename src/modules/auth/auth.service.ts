@@ -219,4 +219,70 @@ export class AuthService {
 
     return { message: 'Telephone verifie avec succes' };
   }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
+    });
+
+    if (!user) {
+      return {
+        message:
+          'Si ce compte existe, un code de reinitialisation a ete envoye',
+      };
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes, plus court qu'avant car plus facile a deviner par force brute
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: hashToken(code),
+        resetPasswordExpiresAt: expiresAt,
+      },
+    });
+
+    await this.notificationAdapter.sendVerificationCode(user.email, code);
+
+    return {
+      message: 'Si ce compte existe, un code de reinitialisation a ete envoye',
+    };
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email,
+        resetPasswordToken: hashToken(code),
+        deletedAt: null,
+      },
+    });
+
+    if (!user || !user.resetPasswordExpiresAt) {
+      throw new BadRequestException('Code de reinitialisation invalide');
+    }
+
+    if (user.resetPasswordExpiresAt < new Date()) {
+      throw new BadRequestException('Code de reinitialisation expire');
+    }
+
+    const hashedPassword = await argon2.hash(newPassword);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpiresAt: null,
+      },
+    });
+
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: user.id, revoked: false },
+      data: { revoked: true },
+    });
+
+    return { message: 'Mot de passe reinitialise avec succes' };
+  }
 }
