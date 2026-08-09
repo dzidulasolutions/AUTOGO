@@ -101,13 +101,16 @@ model UserProfile {
 }
 
 model RefreshToken {
-  id     String @id @default(uuid())
-  token  String @unique // le refresh token est lui-meme hashe avant stockage, jamais en clair
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id       String  @id @default(uuid())
+  token    String  @unique // le refresh token est lui-meme hashe avant stockage, jamais en clair
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
   familyId String // regroupe tous les tokens issus d'une meme session/rotation — cle pour la detection de reutilisation (tache 1.15)
   revoked  Boolean @default(false)
+
+  userAgent String? // navigateur/appareil, pour aider l'utilisateur a reconnaitre ses sessions
+  ipAddress String?
 
   expiresAt DateTime
   createdAt DateTime @default(now())

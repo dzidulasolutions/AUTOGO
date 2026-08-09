@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -37,40 +38,51 @@ export class AuthService {
     return user;
   }
 
-  async login(email: string, password: string) {
+  async login(
+    email: string,
+    password: string,
+    metadata: { userAgent?: string; ipAddress?: string },
+  ) {
     const user = await this.validateUser(email, password);
-    return this.issueTokens(user.id, user.email, user.role.name);
+    return this.issueTokens(user.id, user.email, user.role.name, metadata);
   }
 
   private async issueTokens(
     userId: string,
     email: string,
     roleName: string,
+    metadata: { userAgent?: string; ipAddress?: string },
     familyId?: string,
   ) {
     const payload = { sub: userId, email, role: roleName };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
 
     const rawRefreshToken = generateRefreshToken();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 jours
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await this.prisma.refreshToken.create({
+    const refreshTokenRecord = await this.prisma.refreshToken.create({
       data: {
         token: hashToken(rawRefreshToken),
         userId,
-        familyId: familyId ?? randomUUID(), // nouvelle famille si premiere connexion, sinon on la conserve (rotation)
+        familyId: familyId ?? randomUUID(),
         expiresAt,
+        userAgent: metadata.userAgent,
+        ipAddress: metadata.ipAddress,
       },
     });
 
     return {
       accessToken,
       refreshToken: rawRefreshToken,
+      sessionId: refreshTokenRecord.id, // utile pour identifier "la session courante" cote frontend
       user: { id: userId, email, role: roleName },
     };
   }
 
-  async refresh(rawToken: string) {
+  async refresh(
+    rawToken: string,
+    metadata: { userAgent?: string; ipAddress?: string },
+  ) {
     const hashedToken = hashToken(rawToken);
 
     const existingToken = await this.prisma.refreshToken.findUnique({
@@ -107,7 +119,8 @@ export class AuthService {
       existingToken.user.id,
       existingToken.user.email,
       existingToken.user.role.name,
-      existingToken.familyId, // meme famille conservee
+      metadata,
+      existingToken.familyId,
     );
   }
 
@@ -284,5 +297,49 @@ export class AuthService {
     });
 
     return { message: 'Mot de passe reinitialise avec succes' };
+  }
+
+  async getSessions(userId: string) {
+    const sessions = await this.prisma.refreshToken.findMany({
+      where: { userId, revoked: false, expiresAt: { gt: new Date() } },
+      select: {
+        id: true,
+        userAgent: true,
+        ipAddress: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return sessions;
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    const session = await this.prisma.refreshToken.findFirst({
+      where: { id: sessionId, userId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session introuvable');
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: sessionId },
+      data: { revoked: true },
+    });
+
+    return { message: 'Session revoquee avec succes' };
+  }
+
+  async revokeAllOtherSessions(userId: string, currentSessionId: string) {
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revoked: false,
+        id: { not: currentSessionId },
+      },
+      data: { revoked: true },
+    });
+    return { message: 'Toutes les autres sessions ont ete revoquees' };
   }
 }

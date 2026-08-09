@@ -5,6 +5,11 @@ import {
   HttpCode,
   HttpStatus,
   Req,
+  Ip,
+  Headers,
+  Get,
+  Delete,
+  Param,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
@@ -23,16 +28,30 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion utilisateur' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto.email, dto.password);
+  login(
+    @Body() dto: LoginDto,
+    @Headers('user-agent') userAgent: string,
+    @Ip() ip: string,
+  ) {
+    return this.authService.login(dto.email, dto.password, {
+      userAgent,
+      ipAddress: ip,
+    });
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rafraichir les tokens' })
-  refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refresh(dto.refreshToken);
+  refresh(
+    @Body() dto: RefreshTokenDto,
+    @Headers('user-agent') userAgent: string,
+    @Ip() ip: string,
+  ) {
+    return this.authService.refresh(dto.refreshToken, {
+      userAgent,
+      ipAddress: ip,
+    });
   }
 
   @Public()
@@ -79,5 +98,29 @@ export class AuthController {
   @ApiOperation({ summary: 'Reinitialiser le mot de passe avec un code' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.email, dto.code, dto.newPassword);
+  }
+
+  @Get('sessions')
+  @ApiOperation({ summary: 'Lister mes sessions actives' })
+  getSessions(@Req() req) {
+    return this.authService.getSessions(req.user.id);
+  }
+
+  @Delete('sessions/:id')
+  @ApiOperation({ summary: 'Revoquer une session precise' })
+  revokeSession(@Req() req, @Param('id') sessionId: string) {
+    return this.authService.revokeSession(req.user.id, sessionId);
+  }
+
+  @Delete('sessions')
+  @ApiOperation({ summary: 'Revoquer toutes les sessions sauf celle en cours' })
+  revokeAllOtherSessions(
+    @Req() req,
+    @Body() dto: { currentSessionId: string },
+  ) {
+    return this.authService.revokeAllOtherSessions(
+      req.user.id,
+      dto.currentSessionId,
+    );
   }
 }
