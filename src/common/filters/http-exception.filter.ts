@@ -4,11 +4,37 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+interface HttpExceptionResponse {
+  message: string | string[];
+  error?: string;
+  statusCode?: number;
+}
+
+function extractMessage(exception: unknown): string | string[] {
+  if (exception instanceof HttpException) {
+    const response = exception.getResponse();
+    if (typeof response === 'string') {
+      return response;
+    }
+    if (
+      typeof response === 'object' &&
+      response !== null &&
+      'message' in response
+    ) {
+      return (response as HttpExceptionResponse).message;
+    }
+  }
+  return 'Erreur interne du serveur';
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -19,17 +45,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Erreur interne du serveur';
+    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(
+        `${request.method} ${request.url}`,
+        exception instanceof Error ? exception.stack : exception,
+      );
+    }
 
     response.status(status).json({
       success: false,
       error: {
         statusCode: status,
-        message:
-          typeof message === 'string' ? message : (message as any).message,
+        message: extractMessage(exception),
         path: request.url,
       },
       timestamp: new Date().toISOString(),

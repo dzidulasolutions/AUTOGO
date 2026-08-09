@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -32,5 +32,17 @@ export class AuthController {
   @ApiOperation({ summary: 'Deconnexion' })
   logout(@Body() dto: RefreshTokenDto) {
     return this.authService.logout(dto.refreshToken);
+  }
+
+  @Post('send-verification')
+  @ApiOperation({ summary: 'Envoyer un code de verification email' })
+  sendVerification(@Req() req) {
+    return this.authService.sendEmailVerification(req.user.id);
+  }
+
+  @Post('verify-email')
+  @ApiOperation({ summary: "Verifier l'email avec le code recu" })
+  verifyEmail(@Req() req, @Body() dto: { code: string }) {
+    return this.authService.verifyEmail(req.user.id, dto.code);
   }
 }
