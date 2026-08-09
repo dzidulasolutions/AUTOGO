@@ -8,8 +8,20 @@ import { LoggerModule } from 'nestjs-pino';
 import { HealthModule } from './modules/health/health.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { CustomThrottlerGuard } from './common/guards/throttler.guard';
+
+import { APP_GUARD } from '@nestjs/core';
+
+
 @Module({
   imports: [
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // fenetre de 60 secondes
+        limit: 20,  // 20 requetes par minute par defaut, pour toute l'API
+      },
+    ]),
     ConfigModule.forRoot({
       isGlobal: true, // pas besoin de reimporter ConfigModule dans chaque module — tu pourras injecter ConfigService n'importe ou dans l'app
       validationSchema: envValidationSchema,
@@ -33,6 +45,9 @@ import { AuthModule } from './modules/auth/auth.module';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard
+    },],
 })
 export class AppModule {}
