@@ -162,4 +162,61 @@ export class AuthService {
 
     return { message: 'Email verifie avec succes' };
   }
+
+  async sendPhoneVerification(userId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Utilisateur introuvable');
+    }
+
+    if (!user.phone) {
+      throw new BadRequestException(
+        'Aucun numero de telephone associe a ce compte',
+      );
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { verificationCode: code, verificationCodeExpiresAt: expiresAt },
+    });
+
+    await this.notificationAdapter.sendVerificationCode(user.phone, code);
+
+    return { message: 'Code de verification envoye par telephone' };
+  }
+
+  async verifyPhone(userId: string, code: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+    });
+
+    if (!user || !user.verificationCode || !user.verificationCodeExpiresAt) {
+      throw new BadRequestException('Aucune verification en cours');
+    }
+
+    if (user.verificationCodeExpiresAt < new Date()) {
+      throw new BadRequestException('Code expire');
+    }
+
+    if (user.verificationCode !== code) {
+      throw new BadRequestException('Code invalide');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        phoneVerified: true,
+        verificationCode: null,
+        verificationCodeExpiresAt: null,
+      },
+    });
+
+    return { message: 'Telephone verifie avec succes' };
+  }
 }
