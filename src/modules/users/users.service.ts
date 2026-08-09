@@ -7,6 +7,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as argon2 from 'argon2';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateContactDto } from './dto/update-contact.dto';
 
 @Injectable()
 export class UsersService {
@@ -85,5 +87,55 @@ export class UsersService {
   private excludePassword(user: any) {
     const { password, ...rest } = user;
     return rest;
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      include: { role: true, profile: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+    return this.excludePassword(user);
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const data: any = { ...dto };
+    if (dto.birthDate) {
+      data.birthDate = new Date(dto.birthDate);
+    }
+
+    const profile = await this.prisma.userProfile.upsert({
+      where: { userId },
+      update: data,
+      create: { userId, ...data },
+    });
+
+    return profile;
+  }
+
+  async updateContact(userId: string, dto: UpdateContactDto) {
+    if (dto.email) {
+      const existing = await this.prisma.user.findFirst({
+        where: { email: dto.email, id: { not: userId } },
+      });
+      if (existing) {
+        throw new ConflictException(
+          'Cet email est deja utilise par un autre compte',
+        );
+      }
+    }
+
+    // Changer l'email ou le telephone invalide la verification precedente
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(dto.email && { email: dto.email, emailVerified: false }),
+        ...(dto.phone && { phone: dto.phone, phoneVerified: false }),
+      },
+    });
+
+    return this.excludePassword(user);
   }
 }

@@ -75,11 +75,29 @@ model User {
 
   refreshTokens RefreshToken[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
   deletedAt DateTime? // soft delete : jamais de suppression physique d'un utilisateur
+  profile   UserProfile?
 
   @@map("users")
+}
+
+model UserProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  address   String?
+  city      String?
+  country   String?   @default("Togo")
+  birthDate DateTime?
+  avatarUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_profiles")
 }
 
 model RefreshToken {

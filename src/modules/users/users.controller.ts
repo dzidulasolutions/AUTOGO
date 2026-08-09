@@ -12,6 +12,9 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import {  Req } from '@nestjs/common';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateContactDto } from './dto/update-contact.dto';
 
 @ApiTags('users')
 @Controller('users')
@@ -28,6 +31,26 @@ export class UsersController {
   @ApiOperation({ summary: 'Lister les utilisateurs' })
   findAll() {
     return this.usersService.findAll();
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Consulter mon propre profil' })
+  getMyProfile(@Req() req) {
+    return this.usersService.getProfile(req.user.id);
+  }
+
+  @Patch('me/profile')
+  @ApiOperation({
+    summary: 'Modifier mon profil (adresse, ville, date de naissance)',
+  })
+  updateMyProfile(@Req() req, @Body() dto: UpdateProfileDto) {
+    return this.usersService.updateProfile(req.user.id, dto);
+  }
+
+  @Patch('me/contact')
+  @ApiOperation({ summary: 'Modifier mon email ou telephone' })
+  updateMyContact(@Req() req, @Body() dto: UpdateContactDto) {
+    return this.usersService.updateContact(req.user.id, dto);
   }
 
   @Get(':id')
