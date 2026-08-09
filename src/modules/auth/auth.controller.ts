@@ -20,7 +20,6 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { Throttle } from '@nestjs/throttler';
 
-
 @ApiTags('auth')
 @ApiBearerAuth()
 @Controller('auth')
@@ -37,10 +36,30 @@ export class AuthController {
     @Headers('user-agent') userAgent: string,
     @Ip() ip: string,
   ) {
-    return this.authService.login(dto.email, dto.password, {
-      userAgent,
-      ipAddress: ip,
-    });
+    return this.authService.login(
+      dto.email,
+      dto.password,
+      { userAgent, ipAddress: ip },
+      dto.mfaCode,
+    );
+  }
+
+  @Post('mfa/setup')
+  @ApiOperation({ summary: 'Generer le QR code MFA' })
+  setupMfa(@Req() req) {
+    return this.authService.generateMfaSecret(req.user.id);
+  }
+
+  @Post('mfa/enable')
+  @ApiOperation({ summary: 'Activer le MFA apres verification du code' })
+  enableMfa(@Req() req, @Body() dto: { code: string }) {
+    return this.authService.enableMfa(req.user.id, dto.code);
+  }
+
+  @Post('mfa/disable')
+  @ApiOperation({ summary: 'Desactiver le MFA' })
+  disableMfa(@Req() req, @Body() dto: { code: string }) {
+    return this.authService.disableMfa(req.user.id, dto.code);
   }
 
   @Public()

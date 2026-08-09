@@ -1,12 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString } from 'class-validator';
+import { IsEmail, IsString, IsOptional } from 'class-validator';
 
 export class LoginDto {
-  @ApiProperty({ example: 'agent@autogo.tg' })
+  @ApiProperty()
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ example: 'MotDePasse123!' })
+  @ApiProperty()
   @IsString()
   password!: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  mfaCode?: string;
 }

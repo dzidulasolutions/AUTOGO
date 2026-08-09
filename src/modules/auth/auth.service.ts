@@ -10,6 +10,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { generateRefreshToken, hashToken } from './utils/token.util';
 import * as argon2 from 'argon2';
 import { MockNotificationAdapter } from './adapters/mock-notification.adapter';
+import { generateSecret, verify, generateURI } from 'otplib';
+import * as qrcode from 'qrcode';
 
 @Injectable()
 export class AuthService {
@@ -42,8 +44,21 @@ export class AuthService {
     email: string,
     password: string,
     metadata: { userAgent?: string; ipAddress?: string },
+    mfaCode?: string,
   ) {
     const user = await this.validateUser(email, password);
+
+    if (user.mfaEnabled) {
+      if (!mfaCode) {
+        return { mfaRequired: true };
+      }
+
+      const result = await verify({ secret: user.mfaSecret!, token: mfaCode });
+      if (!result.valid) {
+        throw new UnauthorizedException('Code MFA invalide');
+      }
+    }
+
     return this.issueTokens(user.id, user.email, user.role.name, metadata);
   }
 
@@ -342,4 +357,74 @@ export class AuthService {
     });
     return { message: 'Toutes les autres sessions ont ete revoquees' };
   }
+
+  async generateMfaSecret(userId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+    });
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    const secret = generateSecret();
+    const otpauthUrl = generateURI({
+      issuer: 'AuTogo',
+      label: user.email,
+      secret,
+    });
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { mfaSecret: secret },
+    });
+
+    const qrCodeDataUrl = await qrcode.toDataURL(otpauthUrl);
+
+    return { qrCodeDataUrl, secret };
+  }
+
+  async enableMfa(userId: string, code: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+    });
+
+    if (!user || !user.mfaSecret) {
+      throw new BadRequestException('Aucune configuration MFA en cours');
+    }
+
+    const result = await verify({ secret: user.mfaSecret, token: code });
+    if (!result.valid) {
+      throw new BadRequestException('Code invalide');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { mfaEnabled: true },
+    });
+
+    return { message: 'MFA active avec succes' };
+  }
+
+  async disableMfa(userId: string, code: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+    });
+
+    if (!user || !user.mfaSecret) {
+      throw new BadRequestException('MFA non configure');
+    }
+
+    const result = await verify({ secret: user.mfaSecret, token: code });
+    if (!result.valid) {
+      throw new BadRequestException('Code invalide');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { mfaEnabled: false, mfaSecret: null },
+    });
+
+    return { message: 'MFA desactive' };
+  }
+
 }
