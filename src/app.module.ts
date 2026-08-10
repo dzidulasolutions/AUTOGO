@@ -13,14 +13,14 @@ import { CustomThrottlerGuard } from './common/guards/throttler.guard';
 
 import { APP_GUARD } from '@nestjs/core';
 import { BranchesModule } from './modules/branches/branches.module';
-
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 @Module({
   imports: [
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // fenetre de 60 secondes
-        limit: 20,  // 20 requetes par minute par defaut, pour toute l'API
+        limit: 20, // 20 requetes par minute par defaut, pour toute l'API
       },
     ]),
     ConfigModule.forRoot({
@@ -47,9 +47,13 @@ import { BranchesModule } from './modules/branches/branches.module';
     BranchesModule,
   ],
   controllers: [AppController],
-  providers: [AppService, {
+  providers: [
+    AppService,
+    AuditInterceptor,
+    {
       provide: APP_GUARD,
-      useClass: CustomThrottlerGuard
-    },],
+      useClass: CustomThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

@@ -5,6 +5,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { PrismaService } from './database/prisma.service';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 export function setupApp(app: INestApplication) {
   app.useGlobalPipes(
@@ -15,7 +16,10 @@ export function setupApp(app: INestApplication) {
     }),
   );
 
-  app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalInterceptors(
+    new TransformInterceptor(),
+    app.get(AuditInterceptor), // recupere l'instance via le conteneur d'injection, car il depend de PrismaService et Reflector
+  );
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const reflector = app.get(Reflector);

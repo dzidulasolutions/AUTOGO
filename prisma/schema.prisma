@@ -149,3 +149,30 @@ model Branch {
 
   @@map("branches")
 }
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model AuditLog {
+  id       String      @id @default(uuid())
+  userId   String?     // l'auteur de l'action; nullable pour les actions systeme/anonymes
+  action   AuditAction
+  resource String      // ex: "User", "Branch"
+  resourceId String?   // l'id de la ressource affectee, si applicable
+
+  method     String   // GET, POST, PATCH, DELETE
+  path       String   // ex: "/users/abc123"
+  statusCode Int?     // code retourne, utile pour distinguer succes/echec
+
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([resource, resourceId])
+}
+

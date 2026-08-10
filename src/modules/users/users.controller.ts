@@ -15,6 +15,8 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { Req } from '@nestjs/common';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import { AuditResource } from '../../common/decorators/audit-resource.decorator';
+
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -24,6 +26,7 @@ export class UsersController {
 
   @Post()
   @ApiOperation({ summary: 'Creer un utilisateur' })
+  @AuditResource('User')
   create(@Body() dto: CreateUserDto) {
     return this.usersService.create(dto);
   }
@@ -62,6 +65,7 @@ export class UsersController {
 
   @Patch(':id')
   @RequirePermissions('users:update')
+  @AuditResource('User')
   @ApiOperation({ summary: 'Modifier un utilisateur' })
   update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() req) {
     return this.usersService.update(id, dto, req.user);
@@ -69,6 +73,7 @@ export class UsersController {
 
   @Delete(':id')
   @RequirePermissions('users:delete')
+  @AuditResource('User')
   @ApiOperation({ summary: 'Desactiver un utilisateur (soft delete)' })
   remove(@Param('id') id: string, @Req() req) {
     return this.usersService.remove(id, req.user);
