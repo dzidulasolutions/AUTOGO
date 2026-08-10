@@ -12,6 +12,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { CustomThrottlerGuard } from './common/guards/throttler.guard';
 
 import { APP_GUARD } from '@nestjs/core';
+import { BranchesModule } from './modules/branches/branches.module';
 
 
 @Module({
@@ -43,6 +44,7 @@ import { APP_GUARD } from '@nestjs/core';
     HealthModule,
     UsersModule,
     AuthModule,
+    BranchesModule,
   ],
   controllers: [AppController],
   providers: [AppService, {

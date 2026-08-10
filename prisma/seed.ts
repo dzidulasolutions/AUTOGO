@@ -23,6 +23,9 @@ const PERMISSIONS = [
   { key: 'users:update', description: 'Modifier un utilisateur' },
   { key: 'users:delete', description: 'Supprimer (desactiver) un utilisateur' },
   { key: 'roles:manage', description: 'Gerer les roles et permissions' },
+  { key: 'branches:create', description: 'Creer une agence' },
+  { key: 'branches:update', description: 'Modifier une agence' },
+  { key: 'branches:delete', description: 'Desactiver une agence' },
 ];
 
 async function main() {

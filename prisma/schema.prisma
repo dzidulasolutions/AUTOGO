@@ -83,6 +83,10 @@ model User {
   deletedAt DateTime? // soft delete : jamais de suppression physique d'un utilisateur
   profile   UserProfile?
 
+  // agence ou branch
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
   @@map("users")
 }
 
@@ -119,4 +123,29 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@map("refresh_tokens")
+}
+
+// agences 
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Branch {
+  id      String  @id @default(uuid())
+  name    String  @unique
+  code    String  @unique // identifiant court, ex: "LOM-01", utile pour les futurs numeros de recu/client
+  address String?
+  city    String
+
+  status BranchStatus @default(ACTIVE)
+
+  users User[] // relation inverse : tous les utilisateurs rattaches a cette agence
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft delete, meme regle que partout ailleurs dans ce projet
+
+  @@map("branches")
 }
