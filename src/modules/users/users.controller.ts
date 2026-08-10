@@ -12,7 +12,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
-import {  Req } from '@nestjs/common';
+import { Req } from '@nestjs/common';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 
@@ -30,8 +30,8 @@ export class UsersController {
 
   @Get()
   @ApiOperation({ summary: 'Lister les utilisateurs' })
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Req() req) {
+    return this.usersService.findAll(req.user);
   }
 
   @Get('me')
@@ -56,20 +56,21 @@ export class UsersController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Consulter un utilisateur' })
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req) {
+    return this.usersService.findOne(id, req.user);
   }
 
   @Patch(':id')
+  @RequirePermissions('users:update')
   @ApiOperation({ summary: 'Modifier un utilisateur' })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.usersService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() req) {
+    return this.usersService.update(id, dto, req.user);
   }
 
   @Delete(':id')
   @RequirePermissions('users:delete')
   @ApiOperation({ summary: 'Desactiver un utilisateur (soft delete)' })
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  remove(@Param('id') id: string, @Req() req) {
+    return this.usersService.remove(id, req.user);
   }
 }

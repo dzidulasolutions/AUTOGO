@@ -22,4 +22,8 @@ export class CreateUserDto {
   @ApiProperty({ example: 'uuid-du-role' })
   @IsUUID()
   roleId!: string;
+
+  @ApiProperty({ example: 'uuid-de-l-agence' })
+  @IsUUID()
+  branchId!: string;
 }

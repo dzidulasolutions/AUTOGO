@@ -2,19 +2,31 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as argon2 from 'argon2';
-import { UpdateProfileDto } from './dto/update-profile.dto';
-import { UpdateContactDto } from './dto/update-contact.dto';
+
+type CurrentUser = { id: string; role: string; branchId: string | null };
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  // CREATE
+  private isPrivileged(role: string): boolean {
+    return ['SuperAdmin', 'Admin'].includes(role);
+  }
+
+  private ensureHasBranchOrPrivileged(currentUser: CurrentUser): void {
+    if (!this.isPrivileged(currentUser.role) && !currentUser.branchId) {
+      throw new ForbiddenException(
+        "Votre compte n'est rattache a aucune agence, contactez un administrateur",
+      );
+    }
+  }
+
   async create(dto: CreateUserDto) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -32,41 +44,51 @@ export class UsersService {
         firstName: dto.firstName,
         lastName: dto.lastName,
         roleId: dto.roleId,
+         branchId: dto.branchId
       },
     });
 
     return this.excludePassword(user);
   }
 
-  // READ
-  async findAll() {
+  async findAll(currentUser: CurrentUser) {
+    this.ensureHasBranchOrPrivileged(currentUser);
+    const privileged = this.isPrivileged(currentUser.role);
+
     const users = await this.prisma.user.findMany({
-      where: { deletedAt: null },
-      include: { role: true },
+      where: {
+        deletedAt: null,
+        ...(!privileged && { branchId: currentUser.branchId }),
+      },
+      include: { role: true, branch: true },
     });
+
     return users.map((u) => this.excludePassword(u));
   }
 
-  // Roles
-  async findAllRoles() {
-    return this.prisma.role.findMany();
-  }
+  async findOne(id: string, currentUser: CurrentUser) {
+    this.ensureHasBranchOrPrivileged(currentUser);
+    const privileged = this.isPrivileged(currentUser.role);
 
-  // READ ONE
-  async findOne(id: string) {
     const user = await this.prisma.user.findFirst({
-      where: { id, deletedAt: null },
-      include: { role: true },
+      where: {
+        id,
+        deletedAt: null,
+        ...(!privileged && { branchId: currentUser.branchId }),
+      },
+      include: { role: true, branch: true },
     });
+
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');
     }
     return this.excludePassword(user);
   }
 
-  // UPDATE
-  async update(id: string, dto: UpdateUserDto) {
-    await this.findOne(id); // s'assure que l'utilisateur existe et n'est pas deja supprime
+  async update(id: string, dto: UpdateUserDto, currentUser: CurrentUser) {
+    // findOne applique deja le scoping : si l'utilisateur cible n'est pas dans le perimetre, il leve 404 ici
+    await this.findOne(id, currentUser);
+
     const user = await this.prisma.user.update({
       where: { id },
       data: dto,
@@ -74,19 +96,14 @@ export class UsersService {
     return this.excludePassword(user);
   }
 
-  // DELETE (soft delete)
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, currentUser: CurrentUser) {
+    await this.findOne(id, currentUser);
+
     await this.prisma.user.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
     return { message: 'Utilisateur desactive avec succes' };
-  }
-
-  private excludePassword(user: any) {
-    const { password, ...rest } = user;
-    return rest;
   }
 
   async getProfile(userId: string) {
@@ -100,22 +117,20 @@ export class UsersService {
     return this.excludePassword(user);
   }
 
-  async updateProfile(userId: string, dto: UpdateProfileDto) {
+  async updateProfile(userId: string, dto: any) {
     const data: any = { ...dto };
     if (dto.birthDate) {
       data.birthDate = new Date(dto.birthDate);
     }
 
-    const profile = await this.prisma.userProfile.upsert({
+    return this.prisma.userProfile.upsert({
       where: { userId },
       update: data,
       create: { userId, ...data },
     });
-
-    return profile;
   }
 
-  async updateContact(userId: string, dto: UpdateContactDto) {
+  async updateContact(userId: string, dto: { email?: string; phone?: string }) {
     if (dto.email) {
       const existing = await this.prisma.user.findFirst({
         where: { email: dto.email, id: { not: userId } },
@@ -127,7 +142,6 @@ export class UsersService {
       }
     }
 
-    // Changer l'email ou le telephone invalide la verification precedente
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -137,5 +151,14 @@ export class UsersService {
     });
 
     return this.excludePassword(user);
+  }
+
+  async findAllRoles() {
+    return this.prisma.role.findMany();
+  }
+
+  private excludePassword(user: any) {
+    const { password, ...rest } = user;
+    return rest;
   }
 }
