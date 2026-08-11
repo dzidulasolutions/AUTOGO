@@ -15,6 +15,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { BranchesModule } from './modules/branches/branches.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { ClientsModule } from './modules/clients/clients.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { ClientsModule } from './modules/clients/clients.module';
     AuthModule,
     BranchesModule,
     ClientsModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [
