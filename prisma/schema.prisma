@@ -1,17 +1,16 @@
 datasource db {
   provider = "postgresql"
 }
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
 
 enum UserStatus {
   ACTIVE
   SUSPENDED
   INACTIVE
-}
-
-generator client {
-  provider     = "prisma-client"
-  output       = "../generated/prisma"
-  moduleFormat = "cjs"
 }
 
 model Role {
@@ -142,6 +141,7 @@ model Branch {
   status BranchStatus @default(ACTIVE)
 
   users User[] // relation inverse : tous les utilisateurs rattaches a cette agence
+  clients Client[] // relation inverse : tous les clients rattaches a cette agence
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -176,3 +176,22 @@ model AuditLog {
   @@index([resource, resourceId])
 }
 
+//client
+model Client {
+  id           String   @id @default(uuid())
+  clientNumber String   @unique // ex: "LOM-01-000234"
+
+  firstName String
+  lastName  String
+  phone     String  @unique
+  email     String?
+
+  branchId String
+  branch   Branch  @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@map("clients")
+}

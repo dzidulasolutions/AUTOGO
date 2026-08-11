@@ -26,6 +26,7 @@ const PERMISSIONS = [
   { key: 'branches:create', description: 'Creer une agence' },
   { key: 'branches:update', description: 'Modifier une agence' },
   { key: 'branches:delete', description: 'Desactiver une agence' },
+  { key: 'clients:create', description: 'Creer un client' },
 ];
 
 async function main() {
@@ -84,6 +85,28 @@ async function main() {
       emailVerified: true,
     },
   });
+
+  // Le role Agent et Manager peuvent creer des clients
+  const agentRole = roles.find((r) => r.name === 'Agent')!;
+  const managerRole = roles.find((r) => r.name === 'Manager')!;
+  const clientsCreatePerm = permissions.find(
+    (p) => p.key === 'clients:create',
+  )!;
+
+  await Promise.all(
+    [agentRole, managerRole].map((role) =>
+      prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: role.id,
+            permissionId: clientsCreatePerm.id,
+          },
+        },
+        update: {},
+        create: { roleId: role.id, permissionId: clientsCreatePerm.id },
+      }),
+    ),
+  );
 
   console.log('Seed termine avec succes');
 }
