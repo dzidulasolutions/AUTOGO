@@ -9,6 +9,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { formatClientNumber } from './utils/client-number.util';
+import { Prisma } from '../../../generated/prisma/client';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -130,5 +131,38 @@ export class ClientsService {
       throw new NotFoundException('Client introuvable');
     }
     return Boolean(client.photoUrl && client.idDocumentUrl);
+  }
+
+  async search(query: string, currentUser: CurrentUser) {
+    this.ensureHasBranchOrPrivileged(currentUser);
+    const privileged = this.isPrivileged(currentUser.role);
+
+    // Construit la condition d'agence uniquement si necessaire, sinon un fragment SQL vide
+    const branchCondition = privileged
+      ? Prisma.empty
+      : Prisma.sql`AND "branchId" = ${currentUser.branchId}`;
+
+    const results = await this.prisma.$queryRaw<any[]>`
+    SELECT *,
+      GREATEST(
+        similarity("firstName", ${query}),
+        similarity("lastName", ${query}),
+        similarity(phone, ${query}),
+        similarity("clientNumber", ${query})
+      ) AS relevance
+    FROM clients
+    WHERE "deletedAt" IS NULL
+    ${branchCondition}
+    AND (
+      "firstName" % ${query}
+      OR "lastName" % ${query}
+      OR phone % ${query}
+      OR "clientNumber" % ${query}
+    )
+    ORDER BY relevance DESC
+    LIMIT 20
+  `;
+
+    return results;
   }
 }

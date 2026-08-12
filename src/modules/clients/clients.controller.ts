@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Req,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ClientsService } from './clients.service';
@@ -33,6 +34,12 @@ export class ClientsController {
   @ApiOperation({ summary: 'Lister les clients' })
   findAll(@Req() req) {
     return this.clientsService.findAll(req.user);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Rechercher un client (nom, telephone, numero)' })
+  search(@Query('q') query: string, @Req() req) {
+    return this.clientsService.search(query, req.user);
   }
 
   @Get(':id')
