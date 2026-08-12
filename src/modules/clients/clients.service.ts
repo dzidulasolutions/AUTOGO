@@ -122,7 +122,11 @@ export class ClientsService {
         deletedAt: null,
         ...(!privileged && { branchId: currentUser.branchId as string }),
       },
-      include: { branch: true },
+      include: {
+        branch: true,
+        // TODO Phase 5/6/7 : ajouter ici { loans: true, savings: true, tontines: true }
+        // une fois ces modules construits, pour une vue consolidee du dossier client
+      },
     });
 
     if (!client) {
