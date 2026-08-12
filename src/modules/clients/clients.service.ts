@@ -76,17 +76,40 @@ export class ClientsService {
     });
   }
 
-  async findAll(currentUser: CurrentUser) {
+  async findAll(
+    currentUser: CurrentUser,
+    pagination: { page: number; limit: number },
+  ) {
     this.ensureHasBranchOrPrivileged(currentUser);
     const privileged = this.isPrivileged(currentUser.role);
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
 
-    return this.prisma.client.findMany({
-      where: {
-        deletedAt: null,
-        ...(!privileged && { branchId: currentUser.branchId as string }),
+    const where = {
+      deletedAt: null,
+      ...(!privileged && { branchId: currentUser.branchId as string }),
+    };
+
+    const [clients, total] = await Promise.all([
+      this.prisma.client.findMany({
+        where,
+        include: { branch: true },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.client.count({ where }),
+    ]);
+
+    return {
+      items: clients,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-      include: { branch: true },
-    });
+    };
   }
 
   async findOne(id: string, currentUser: CurrentUser) {

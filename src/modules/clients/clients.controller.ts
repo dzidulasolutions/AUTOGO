@@ -15,6 +15,7 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @ApiTags('clients')
 @ApiBearerAuth()
@@ -31,15 +32,12 @@ export class ClientsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Lister les clients' })
-  findAll(@Req() req) {
-    return this.clientsService.findAll(req.user);
-  }
-
-  @Get('search')
-  @ApiOperation({ summary: 'Rechercher un client (nom, telephone, numero)' })
-  search(@Query('q') query: string, @Req() req) {
-    return this.clientsService.search(query, req.user);
+  @ApiOperation({ summary: 'Lister les clients (pagine)' })
+  findAll(@Query() pagination: PaginationDto, @Req() req) {
+    return this.clientsService.findAll(req.user, {
+      page: pagination.page!,
+      limit: pagination.limit!,
+    });
   }
 
   @Get(':id')
