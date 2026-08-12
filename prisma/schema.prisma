@@ -186,6 +186,9 @@ model Client {
   phone     String  @unique
   email     String?
 
+  photoUrl      String?
+  idDocumentUrl String?
+  
   branchId String
   branch   Branch  @relation(fields: [branchId], references: [id])
 

@@ -27,6 +27,8 @@ const PERMISSIONS = [
   { key: 'branches:update', description: 'Modifier une agence' },
   { key: 'branches:delete', description: 'Desactiver une agence' },
   { key: 'clients:create', description: 'Creer un client' },
+  { key: 'clients:update', description: 'Modifier un client' },
+  { key: 'clients:delete', description: 'Desactiver un client' },
 ];
 
 async function main() {
@@ -105,6 +107,27 @@ async function main() {
         update: {},
         create: { roleId: role.id, permissionId: clientsCreatePerm.id },
       }),
+    ),
+  );
+
+  const clientsUpdatePerm = permissions.find(
+    (p) => p.key === 'clients:update',
+  )!;
+  const clientsDeletePerm = permissions.find(
+    (p) => p.key === 'clients:delete',
+  )!;
+
+  await Promise.all(
+    [agentRole, managerRole].flatMap((role) =>
+      [clientsUpdatePerm, clientsDeletePerm].map((perm) =>
+        prisma.rolePermission.upsert({
+          where: {
+            roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+          },
+          update: {},
+          create: { roleId: role.id, permissionId: perm.id },
+        }),
+      ),
     ),
   );
 
