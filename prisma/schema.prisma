@@ -1,6 +1,7 @@
 datasource db {
   provider = "postgresql"
 }
+
 generator client {
   provider     = "prisma-client"
   output       = "../generated/prisma"
@@ -77,18 +78,21 @@ model User {
 
   refreshTokens RefreshToken[]
 
+
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   deletedAt DateTime? // soft delete : jamais de suppression physique d'un utilisateur
   profile   UserProfile?
 
   // agence ou branch
-  branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  branchId     String?
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+  transactionsPerformed Transaction[]
 
   @@map("users")
 }
 
+// informations personnelles de l'utilisateur, stockees dans une table separee pour eviter de surcharger la table principale "users"
 model UserProfile {
   id     String @id @default(uuid())
   userId String @unique
@@ -106,6 +110,7 @@ model UserProfile {
   @@map("user_profiles")
 }
 
+// 
 model RefreshToken {
   id     String @id @default(uuid())
   token  String @unique // le refresh token est lui-meme hashe avant stockage, jamais en clair
@@ -140,8 +145,10 @@ model Branch {
 
   status BranchStatus @default(ACTIVE)
 
-  users User[] // relation inverse : tous les utilisateurs rattaches a cette agence
+  users   User[] // relation inverse : tous les utilisateurs rattaches a cette agence
   clients Client[] // relation inverse : tous les clients rattaches a cette agence
+
+  transactions Transaction[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -150,6 +157,7 @@ model Branch {
   @@map("branches")
 }
 
+// audit logs
 enum AuditAction {
   CREATE
   UPDATE
@@ -157,29 +165,29 @@ enum AuditAction {
 }
 
 model AuditLog {
-  id       String      @id @default(uuid())
-  userId   String?     // l'auteur de l'action; nullable pour les actions systeme/anonymes
-  action   AuditAction
-  resource String      // ex: "User", "Branch"
-  resourceId String?   // l'id de la ressource affectee, si applicable
+  id         String      @id @default(uuid())
+  userId     String? // l'auteur de l'action; nullable pour les actions systeme/anonymes
+  action     AuditAction
+  resource   String // ex: "User", "Branch"
+  resourceId String? // l'id de la ressource affectee, si applicable
 
-  method     String   // GET, POST, PATCH, DELETE
-  path       String   // ex: "/users/abc123"
-  statusCode Int?     // code retourne, utile pour distinguer succes/echec
+  method     String // GET, POST, PATCH, DELETE
+  path       String // ex: "/users/abc123"
+  statusCode Int? // code retourne, utile pour distinguer succes/echec
 
   ipAddress String?
 
   createdAt DateTime @default(now())
 
-  @@map("audit_logs")
   @@index([userId])
   @@index([resource, resourceId])
+  @@map("audit_logs")
 }
 
 //client
 model Client {
-  id           String   @id @default(uuid())
-  clientNumber String   @unique // ex: "LOM-01-000234"
+  id           String @id @default(uuid())
+  clientNumber String @unique // ex: "LOM-01-000234"
 
   firstName String
   lastName  String
@@ -188,9 +196,11 @@ model Client {
 
   photoUrl      String?
   idDocumentUrl String?
-  
+
   branchId String
-  branch   Branch  @relation(fields: [branchId], references: [id])
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  transactions Transaction[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -198,3 +208,49 @@ model Client {
 
   @@map("clients")
 }
+
+// transactions
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  LOAN_DISBURSEMENT
+  LOAN_REPAYMENT
+  TONTINE_COLLECTION
+  TONTINE_PAYOUT
+}
+
+enum TransactionStatus {
+  COMPLETED
+  CANCELLED
+}
+
+model Transaction {
+  id                String @id @default(uuid())
+  transactionNumber String @unique // ex: "TXN-000001"
+
+  type   TransactionType
+  status TransactionStatus @default(COMPLETED)
+  amount Decimal           @db.Decimal(15, 2) // jamais de Float pour de l'argent
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  performedById String // l'utilisateur (agent/caissier) qui a execute l'operation
+  performedBy   User   @relation(fields: [performedById], references: [id])
+
+  idempotencyKey String  @unique // evite les doublons en cas de double appel reseau
+  description    String?
+
+  cancelledAt   DateTime?
+  cancelledById String?
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+  @@index([branchId, createdAt])
+  @@map("transactions")
+}
+

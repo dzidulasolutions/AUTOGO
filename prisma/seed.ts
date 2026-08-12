@@ -29,6 +29,7 @@ const PERMISSIONS = [
   { key: 'clients:create', description: 'Creer un client' },
   { key: 'clients:update', description: 'Modifier un client' },
   { key: 'clients:delete', description: 'Desactiver un client' },
+  { key: 'transactions:create', description: 'Creer une transaction' },
 ];
 
 async function main() {
@@ -90,7 +91,10 @@ async function main() {
 
   // Le role Agent et Manager peuvent creer des clients
   const agentRole = roles.find((r) => r.name === 'Agent')!;
+  const caissierRole = roles.find((r) => r.name === 'Caissier')!;
   const managerRole = roles.find((r) => r.name === 'Manager')!;
+  const transactionsCreatePerm = permissions.find((p) => p.key === 'transactions:create')!;
+
   const clientsCreatePerm = permissions.find(
     (p) => p.key === 'clients:create',
   )!;
@@ -118,16 +122,17 @@ async function main() {
   )!;
 
   await Promise.all(
-    [agentRole, managerRole].flatMap((role) =>
-      [clientsUpdatePerm, clientsDeletePerm].map((perm) =>
-        prisma.rolePermission.upsert({
-          where: {
-            roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+    [agentRole, managerRole, caissierRole].map((role) =>
+      prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: role.id,
+            permissionId: transactionsCreatePerm.id,
           },
-          update: {},
-          create: { roleId: role.id, permissionId: perm.id },
-        }),
-      ),
+        },
+        update: {},
+        create: { roleId: role.id, permissionId: transactionsCreatePerm.id },
+      }),
     ),
   );
 

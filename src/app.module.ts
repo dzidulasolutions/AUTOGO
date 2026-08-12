@@ -16,6 +16,7 @@ import { BranchesModule } from './modules/branches/branches.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { ClientsModule } from './modules/clients/clients.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { TransactionsModule } from './modules/transactions/transactions.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
     BranchesModule,
     ClientsModule,
     UploadsModule,
+    TransactionsModule,
   ],
   controllers: [AppController],
   providers: [
