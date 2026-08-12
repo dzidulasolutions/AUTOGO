@@ -2,11 +2,13 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { formatTransactionNumber } from './utils/transaction-number.util';
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
+import { CancelTransactionDto } from './dto/cancel-transaction.dto';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -113,5 +115,35 @@ export class TransactionsService {
       items: transactions,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+  }
+
+  async cancelTransaction(
+    id: string,
+    dto: CancelTransactionDto,
+    currentUser: CurrentUser,
+  ) {
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { id },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException('Transaction introuvable');
+    }
+
+    if (transaction.status === 'CANCELLED') {
+      throw new BadRequestException('Cette transaction est deja annulee');
+    }
+
+    return this.prisma.transaction.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelledById: currentUser.id,
+        description: transaction.description
+          ? `${transaction.description} | Annulee: ${dto.reason}`
+          : `Annulee: ${dto.reason}`,
+      },
+    });
   }
 }
