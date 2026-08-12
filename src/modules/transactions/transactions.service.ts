@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { formatTransactionNumber } from './utils/transaction-number.util';
+import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -73,5 +74,44 @@ export class TransactionsService {
     });
 
     return transaction;
+  }
+
+  async findAll(currentUser: CurrentUser, filters: TransactionFiltersDto) {
+    const privileged = this.isPrivileged(currentUser.role);
+    const { page = 1, limit = 20, clientId, type, fromDate, toDate } = filters;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      ...(!privileged && { branchId: currentUser.branchId as string }),
+      ...(clientId && { clientId }),
+      ...(type && { type }),
+      ...(fromDate || toDate
+        ? {
+            createdAt: {
+              ...(fromDate && { gte: new Date(fromDate) }),
+              ...(toDate && { lte: new Date(toDate) }),
+            },
+          }
+        : {}),
+    };
+
+    const [transactions, total] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where,
+        include: {
+          client: true,
+          performedBy: { select: { firstName: true, lastName: true } },
+        },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.transaction.count({ where }),
+    ]);
+
+    return {
+      items: transactions,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 }
