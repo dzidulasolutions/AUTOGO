@@ -1,3 +1,4 @@
+import { InterestSchedulerService } from './interest-scheduler.service';
 import { Controller, Post, Body, Param, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SavingsService } from './savings.service';
@@ -10,7 +11,10 @@ import { AuditResource } from '../../common/decorators/audit-resource.decorator'
 @ApiBearerAuth()
 @Controller('savings')
 export class SavingsController {
-  constructor(private savingsService: SavingsService) {}
+  constructor(
+    private savingsService: SavingsService,
+    private interestSchedulerService: InterestSchedulerService,
+  ) {}
 
   @Post('accounts')
   @RequirePermissions('savings:create')
@@ -42,5 +46,12 @@ export class SavingsController {
     @Req() req,
   ) {
     return this.savingsService.withdraw(id, dto, req.user);
+  }
+
+  @Post('trigger-interest-test')
+  @RequirePermissions('savings:deposit') // reutilise une permission existante pour ce test
+  async triggerInterestTest() {
+    await this.interestSchedulerService.scheduleMonthlyInterest();
+    return { message: "Job d'interet declenche manuellement pour test" };
   }
 }

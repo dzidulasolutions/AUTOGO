@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envValidationSchema } from './config/env.validation';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { HealthModule } from './modules/health/health.module';
 import { UsersModule } from './modules/users/users.module';
@@ -18,9 +18,31 @@ import { ClientsModule } from './modules/clients/clients.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { SavingsModule } from './modules/savings/savings.module';
+import { BullModule } from '@nestjs/bullmq';
+import { ScheduleModule } from '@nestjs/schedule';
+import Redis from 'ioredis';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(), // active le systeme de "reveil-matin" @Cron
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL')!;
+        const connection = new Redis(redisUrl, {
+          maxRetriesPerRequest: null,
+          enableReadyCheck: false,
+        });
+
+        connection.on('error', (err) => {
+          console.error('Erreur connexion Redis (BullMQ)', err.message);
+        });
+
+        return { connection };
+      },
+    }),
+
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // fenetre de 60 secondes
