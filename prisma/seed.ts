@@ -6,7 +6,15 @@ import * as argon2 from 'argon2';
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const ROLES = ['SuperAdmin', 'Admin', 'Manager', 'Agent', 'Caissier', 'Comptable', 'Client'];
+const ROLES = [
+  'SuperAdmin',
+  'Admin',
+  'Manager',
+  'Agent',
+  'Caissier',
+  'Comptable',
+  'Client',
+];
 
 const PERMISSIONS = [
   { key: 'users:create', description: 'Creer un utilisateur' },
@@ -22,6 +30,9 @@ const PERMISSIONS = [
   { key: 'clients:delete', description: 'Desactiver un client' },
   { key: 'transactions:create', description: 'Creer une transaction' },
   { key: 'transactions:cancel', description: 'Annuler une transaction' },
+  { key: 'savings:create', description: 'Ouvrir un compte epargne' },
+  { key: 'savings:deposit', description: 'Deposer sur un compte epargne' },
+  { key: 'savings:withdraw', description: "Retirer d'un compte epargne" },
 ];
 
 async function main() {
@@ -33,7 +44,11 @@ async function main() {
 
   const permissions = await Promise.all(
     PERMISSIONS.map((p) =>
-      prisma.permission.upsert({ where: { key: p.key }, update: {}, create: p }),
+      prisma.permission.upsert({
+        where: { key: p.key },
+        update: {},
+        create: p,
+      }),
     ),
   );
 
@@ -41,7 +56,12 @@ async function main() {
   await Promise.all(
     permissions.map((perm) =>
       prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: superAdminRole.id, permissionId: perm.id } },
+        where: {
+          roleId_permissionId: {
+            roleId: superAdminRole.id,
+            permissionId: perm.id,
+          },
+        },
         update: {},
         create: { roleId: superAdminRole.id, permissionId: perm.id },
       }),
@@ -67,18 +87,30 @@ async function main() {
   const caissierRole = roles.find((r) => r.name === 'Caissier')!;
   const comptableRole = roles.find((r) => r.name === 'Comptable')!;
 
-  const clientsCreatePerm = permissions.find((p) => p.key === 'clients:create')!;
-  const clientsUpdatePerm = permissions.find((p) => p.key === 'clients:update')!;
-  const clientsDeletePerm = permissions.find((p) => p.key === 'clients:delete')!;
-  const transactionsCreatePerm = permissions.find((p) => p.key === 'transactions:create')!;
-  const transactionsCancelPerm = permissions.find((p) => p.key === 'transactions:cancel')!;
+  const clientsCreatePerm = permissions.find(
+    (p) => p.key === 'clients:create',
+  )!;
+  const clientsUpdatePerm = permissions.find(
+    (p) => p.key === 'clients:update',
+  )!;
+  const clientsDeletePerm = permissions.find(
+    (p) => p.key === 'clients:delete',
+  )!;
+  const transactionsCreatePerm = permissions.find(
+    (p) => p.key === 'transactions:create',
+  )!;
+  const transactionsCancelPerm = permissions.find(
+    (p) => p.key === 'transactions:cancel',
+  )!;
 
   // Agent et Manager : gestion complete des clients
   await Promise.all(
     [agentRole, managerRole].flatMap((role) =>
       [clientsCreatePerm, clientsUpdatePerm, clientsDeletePerm].map((perm) =>
         prisma.rolePermission.upsert({
-          where: { roleId_permissionId: { roleId: role.id, permissionId: perm.id } },
+          where: {
+            roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+          },
           update: {},
           create: { roleId: role.id, permissionId: perm.id },
         }),
@@ -90,7 +122,12 @@ async function main() {
   await Promise.all(
     [agentRole, managerRole, caissierRole].map((role) =>
       prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: role.id, permissionId: transactionsCreatePerm.id } },
+        where: {
+          roleId_permissionId: {
+            roleId: role.id,
+            permissionId: transactionsCreatePerm.id,
+          },
+        },
         update: {},
         create: { roleId: role.id, permissionId: transactionsCreatePerm.id },
       }),
@@ -99,10 +136,42 @@ async function main() {
 
   // Comptable uniquement : peut annuler une transaction
   await prisma.rolePermission.upsert({
-    where: { roleId_permissionId: { roleId: comptableRole.id, permissionId: transactionsCancelPerm.id } },
+    where: {
+      roleId_permissionId: {
+        roleId: comptableRole.id,
+        permissionId: transactionsCancelPerm.id,
+      },
+    },
     update: {},
-    create: { roleId: comptableRole.id, permissionId: transactionsCancelPerm.id },
+    create: {
+      roleId: comptableRole.id,
+      permissionId: transactionsCancelPerm.id,
+    },
   });
+
+  const savingsCreatePerm = permissions.find(
+    (p) => p.key === 'savings:create',
+  )!;
+  const savingsDepositPerm = permissions.find(
+    (p) => p.key === 'savings:deposit',
+  )!;
+  const savingsWithdrawPerm = permissions.find(
+    (p) => p.key === 'savings:withdraw',
+  )!;
+
+  await Promise.all(
+    [agentRole, managerRole, caissierRole].flatMap((role) =>
+      [savingsCreatePerm, savingsDepositPerm, savingsWithdrawPerm].map((perm) =>
+        prisma.rolePermission.upsert({
+          where: {
+            roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+          },
+          update: {},
+          create: { roleId: role.id, permissionId: perm.id },
+        }),
+      ),
+    ),
+  );
 
   console.log('Seed termine avec succes');
 }

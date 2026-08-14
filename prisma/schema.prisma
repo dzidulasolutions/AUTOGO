@@ -78,15 +78,14 @@ model User {
 
   refreshTokens RefreshToken[]
 
-
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   deletedAt DateTime? // soft delete : jamais de suppression physique d'un utilisateur
   profile   UserProfile?
 
   // agence ou branch
-  branchId     String?
-  branch       Branch?       @relation(fields: [branchId], references: [id])
+  branchId              String?
+  branch                Branch?       @relation(fields: [branchId], references: [id])
   transactionsPerformed Transaction[]
 
   @@map("users")
@@ -150,9 +149,10 @@ model Branch {
 
   transactions Transaction[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // soft delete, meme regle que partout ailleurs dans ce projet
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime? // soft delete, meme regle que partout ailleurs dans ce projet
+  savingsAccounts SavingsAccount[]
 
   @@map("branches")
 }
@@ -200,7 +200,8 @@ model Client {
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
 
-  transactions Transaction[]
+  transactions    Transaction[]
+  savingsAccounts SavingsAccount[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -249,8 +250,37 @@ model Transaction {
 
   createdAt DateTime @default(now())
 
+  savingsAccounts SavingsAccount[]
+
   @@index([clientId])
   @@index([branchId, createdAt])
   @@map("transactions")
 }
 
+enum SavingsAccountStatus {
+  ACTIVE
+  CLOSED
+}
+
+model SavingsAccount {
+  id            String @id @default(uuid())
+  accountNumber String @unique
+
+  balance Decimal              @default(0) @db.Decimal(15, 2)
+  status  SavingsAccountStatus @default(ACTIVE)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  closedAt      DateTime?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  transactionId String?
+
+  @@index([clientId])
+  @@map("savings_accounts")
+}

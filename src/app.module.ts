@@ -17,6 +17,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { ClientsModule } from './modules/clients/clients.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
+import { SavingsModule } from './modules/savings/savings.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
     ClientsModule,
     UploadsModule,
     TransactionsModule,
+    SavingsModule,
   ],
   controllers: [AppController],
   providers: [

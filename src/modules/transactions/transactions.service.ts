@@ -9,6 +9,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { formatTransactionNumber } from './utils/transaction-number.util';
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 import { CancelTransactionDto } from './dto/cancel-transaction.dto';
+import { Prisma } from '../../../generated/prisma/client';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -20,18 +21,21 @@ export class TransactionsService {
     return ['SuperAdmin', 'Admin'].includes(role);
   }
 
-  async createTransaction(dto: CreateTransactionDto, currentUser: CurrentUser) {
-    // 1. Verification d'idempotence AVANT toute autre logique
-    const existing = await this.prisma.transaction.findUnique({
+  async createTransaction(
+    dto: CreateTransactionDto,
+    currentUser: CurrentUser,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const db = tx ?? this.prisma; // utilise le client transactionnel fourni, sinon le client normal
+
+    const existing = await db.transaction.findUnique({
       where: { idempotencyKey: dto.idempotencyKey },
     });
     if (existing) {
-      // On ne leve pas d'erreur : on renvoie simplement le resultat deja obtenu
       return existing;
     }
 
-    // 2. Validations metier, avant d'ouvrir le bloc transactionnel
-    const client = await this.prisma.client.findFirst({
+    const client = await db.client.findFirst({
       where: { id: dto.clientId, deletedAt: null },
     });
     if (!client) {
@@ -51,31 +55,25 @@ export class TransactionsService {
       );
     }
 
-    // 3. Numerotation via sequence
-    const seqResult = await this.prisma.$queryRaw<{ nextval: bigint }[]>`
-      SELECT nextval('transaction_number_seq')
-    `;
+    const seqResult = await db.$queryRaw<{ nextval: bigint }[]>`
+    SELECT nextval('transaction_number_seq')
+  `;
     const transactionNumber = formatTransactionNumber(
       Number(seqResult[0].nextval),
     );
 
-    // 4. Creation dans un bloc transactionnel Prisma (atomicite)
-    const transaction = await this.prisma.$transaction(async (tx) => {
-      return tx.transaction.create({
-        data: {
-          transactionNumber,
-          type: dto.type,
-          amount: dto.amount,
-          clientId: dto.clientId,
-          branchId: targetBranchId!,
-          performedById: currentUser.id,
-          idempotencyKey: dto.idempotencyKey,
-          description: dto.description,
-        },
-      });
+    return db.transaction.create({
+      data: {
+        transactionNumber,
+        type: dto.type,
+        amount: dto.amount,
+        clientId: dto.clientId,
+        branchId: targetBranchId!,
+        performedById: currentUser.id,
+        idempotencyKey: dto.idempotencyKey,
+        description: dto.description,
+      },
     });
-
-    return transaction;
   }
 
   async findAll(currentUser: CurrentUser, filters: TransactionFiltersDto) {
