@@ -97,15 +97,20 @@ export class SavingsService {
     currentUser: CurrentUser,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      const account = await tx.savingsAccount.findFirst({
-        where: { id: accountId, status: 'ACTIVE' },
-      });
+      // $queryRaw avec FOR UPDATE : verrouille la ligne jusqu'a la fin de cette transaction
+      const accounts = await tx.$queryRaw<any[]>`
+      SELECT * FROM savings_accounts
+      WHERE id = ${accountId} AND status = 'ACTIVE'
+      FOR UPDATE
+    `;
+      const account = accounts[0];
+
       if (!account) {
         throw new NotFoundException('Compte epargne introuvable ou ferme');
       }
 
-      // Verification du solde AVANT de toucher a quoi que ce soit
-      if (account.balance.lessThan(dto.amount)) {
+      // account.balance vient du SQL brut : c'est une string, pas un objet Decimal Prisma
+      if (Number(account.balance) < dto.amount) {
         throw new BadRequestException('Solde insuffisant pour ce retrait');
       }
 
@@ -129,5 +134,4 @@ export class SavingsService {
       return { transaction, account: updatedAccount };
     });
   }
-
 }
