@@ -6,6 +6,7 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
 import { Patch, Param } from '@nestjs/common';
 import { MissedCollectionSchedulerService } from './missed-collection-scheduler.service';
+import { Get } from '@nestjs/common';
 
 @ApiTags('tontines')
 @ApiBearerAuth()
@@ -24,6 +25,8 @@ export class TontinesController {
     return this.tontinesService.createCycle(dto, req.user);
   }
 
+
+
   @Patch('collections/:id/validate')
   @RequirePermissions('tontines:create') // reutilise la meme permission pour l'instant
   @AuditResource('TontineCollection')
@@ -41,5 +44,19 @@ export class TontinesController {
   async triggerMissedCheckTest() {
     await this.missedScheduler.scheduleMissedCheck();
     return { message: 'Verification des echeances manquees declenchee' };
+  }
+
+  @Patch('cycles/:id/close')
+  @RequirePermissions('tontines:create')
+  @AuditResource('TontineCycle')
+  @ApiOperation({
+    summary: 'Cloturer un cycle et restituer le montant collecte',
+  })
+  closeCycle(
+    @Param('id') id: string,
+    @Body() dto: { idempotencyKey: string },
+    @Req() req,
+  ) {
+    return this.tontinesService.closeCycle(id, dto, req.user);
   }
 }

@@ -7,7 +7,6 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { CreateCycleDto } from './dto/create-cycle.dto';
-import { randomUUID } from 'crypto';
 import { formatCycleNumber } from './utils/cycle-number.util';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
@@ -140,6 +139,67 @@ export class TontinesService {
       });
 
       return { transaction, collection: updatedCollection };
+    });
+  }
+
+  async closeCycle(
+    cycleId: string,
+    dto: { idempotencyKey: string },
+    currentUser: CurrentUser,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const cycle = await tx.tontineCycle.findFirst({
+        where: { id: cycleId, status: 'ACTIVE' },
+        include: { client: true },
+      });
+
+      if (!cycle) {
+        throw new NotFoundException('Cycle introuvable ou deja cloture');
+      }
+
+      this.checkClientAccess(cycle.client, currentUser);
+
+      // Calcule le total reellement collecte (uniquement les echeances COLLECTE)
+      const collectedSum = await tx.tontineCollection.aggregate({
+        where: { cycleId, status: 'COLLECTE' },
+        _count: { id: true },
+      });
+
+      const totalCollected =
+        collectedSum._count.id * Number(cycle.amountPerCollection);
+      const commission = totalCollected * Number(cycle.commissionRate);
+      const restitutionAmount = totalCollected - commission;
+
+      if (restitutionAmount <= 0) {
+        throw new BadRequestException(
+          'Aucun montant a restituer pour ce cycle',
+        );
+      }
+
+      const transaction = await this.transactionsService.createTransaction(
+        {
+          clientId: cycle.clientId,
+          type: 'TONTINE_PAYOUT' as any,
+          amount: restitutionAmount,
+          idempotencyKey: dto.idempotencyKey,
+          description: `Restitution cycle ${cycle.cycleNumber} (${collectedSum._count.id} collectes, commission ${(Number(cycle.commissionRate) * 100).toFixed(0)}%)`,
+        },
+        currentUser,
+        tx,
+      );
+
+      const closedCycle = await tx.tontineCycle.update({
+        where: { id: cycleId },
+        data: { status: 'CLOSED', closedAt: new Date() },
+      });
+
+      return {
+        transaction,
+        cycle: closedCycle,
+        totalCollected,
+        commission,
+        restitutionAmount,
+      };
     });
   }
 }
