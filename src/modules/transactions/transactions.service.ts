@@ -46,13 +46,20 @@ export class TransactionsService {
       ? client.branchId
       : currentUser.branchId;
 
-    if (
-      !this.isPrivileged(currentUser.role) &&
-      client.branchId !== currentUser.branchId
-    ) {
-      throw new ForbiddenException(
-        "Vous ne pouvez pas effectuer une transaction pour un client d'une autre agence",
-      );
+    if (!this.isPrivileged(currentUser.role)) {
+      if (client.branchId !== currentUser.branchId) {
+        throw new ForbiddenException(
+          "Vous ne pouvez pas effectuer une transaction pour un client d'une autre agence",
+        );
+      }
+      if (
+        currentUser.role === 'Agent' &&
+        client.assignedAgentId !== currentUser.id
+      ) {
+        throw new ForbiddenException(
+          "Ce client n'est pas assigne a votre portefeuille",
+        );
+      }
     }
 
     const seqResult = await db.$queryRaw<{ nextval: bigint }[]>`

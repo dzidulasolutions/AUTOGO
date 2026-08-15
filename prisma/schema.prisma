@@ -87,6 +87,7 @@ model User {
   branchId              String?
   branch                Branch?       @relation(fields: [branchId], references: [id])
   transactionsPerformed Transaction[]
+  assignedClients Client[] @relation("AssignedClients")
 
   @@map("users")
 }
@@ -202,6 +203,9 @@ model Client {
 
   transactions    Transaction[]
   savingsAccounts SavingsAccount[]
+
+  assignedAgentId String?
+  assignedAgent   User?   @relation("AssignedClients", fields: [assignedAgentId], references: [id])
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

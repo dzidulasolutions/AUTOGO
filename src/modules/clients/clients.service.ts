@@ -29,6 +29,20 @@ export class ClientsService {
     }
   }
 
+  // Centralise la regle a trois niveaux : privilegie (tout voit), Manager (toute l'agence), Agent (ses clients uniquement)
+  private buildScopeWhere(currentUser: CurrentUser) {
+    if (this.isPrivileged(currentUser.role)) {
+      return {};
+    }
+    if (currentUser.role === 'Manager') {
+      return { branchId: currentUser.branchId as string };
+    }
+    return {
+      branchId: currentUser.branchId as string,
+      assignedAgentId: currentUser.id,
+    };
+  }
+
   async create(dto: CreateClientDto, currentUser: CurrentUser) {
     const targetBranchId = this.isPrivileged(currentUser.role)
       ? dto.branchId
@@ -72,6 +86,8 @@ export class ClientsService {
         photoUrl: dto.photoUrl,
         idDocumentUrl: dto.idDocumentUrl,
         branchId: targetBranchId,
+        assignedAgentId:
+          currentUser.role === 'Agent' ? currentUser.id : dto.assignedAgentId,
       },
     });
   }
@@ -81,14 +97,9 @@ export class ClientsService {
     pagination: { page: number; limit: number },
   ) {
     this.ensureHasBranchOrPrivileged(currentUser);
-    const privileged = this.isPrivileged(currentUser.role);
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
-
-    const where = {
-      deletedAt: null,
-      ...(!privileged && { branchId: currentUser.branchId as string }),
-    };
+    const where = { deletedAt: null, ...this.buildScopeWhere(currentUser) };
 
     const [clients, total] = await Promise.all([
       this.prisma.client.findMany({
@@ -103,29 +114,19 @@ export class ClientsService {
 
     return {
       items: clients,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
   async findOne(id: string, currentUser: CurrentUser) {
     this.ensureHasBranchOrPrivileged(currentUser);
-    const privileged = this.isPrivileged(currentUser.role);
+    const where = { id, deletedAt: null, ...this.buildScopeWhere(currentUser) };
 
     const client = await this.prisma.client.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-        ...(!privileged && { branchId: currentUser.branchId as string }),
-      },
+      where,
       include: {
         branch: true,
-        // TODO Phase 5/6/7 : ajouter ici { loans: true, savings: true, tontines: true }
-        // une fois ces modules construits, pour une vue consolidee du dossier client
+        // TODO Phase 6/7 : ajouter ici { tontineCycles: true, loans: true } une fois ces modules construits
       },
     });
 
