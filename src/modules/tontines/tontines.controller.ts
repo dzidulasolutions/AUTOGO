@@ -5,12 +5,16 @@ import { CreateCycleDto } from './dto/create-cycle.dto';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
 import { Patch, Param } from '@nestjs/common';
+import { MissedCollectionSchedulerService } from './missed-collection-scheduler.service';
 
 @ApiTags('tontines')
 @ApiBearerAuth()
 @Controller('tontines')
 export class TontinesController {
-  constructor(private tontinesService: TontinesService) {}
+  constructor(
+    private tontinesService: TontinesService,
+    private missedScheduler: MissedCollectionSchedulerService,
+  ) {}
 
   @Post('cycles')
   @RequirePermissions('tontines:create')
@@ -30,5 +34,12 @@ export class TontinesController {
     @Req() req,
   ) {
     return this.tontinesService.validateCollection(id, dto, req.user);
+  }
+
+  @Post('trigger-missed-check-test')
+  @RequirePermissions('tontines:create')
+  async triggerMissedCheckTest() {
+    await this.missedScheduler.scheduleMissedCheck();
+    return { message: 'Verification des echeances manquees declenchee' };
   }
 }
