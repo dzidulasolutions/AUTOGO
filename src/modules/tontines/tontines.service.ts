@@ -95,4 +95,51 @@ export class TontinesService {
       return { cycle, totalCollectionsGenerated: collectionsToCreate.length };
     });
   }
+
+  async validateCollection(
+    collectionId: string,
+    dto: { idempotencyKey: string },
+    currentUser: CurrentUser,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const collection = await tx.tontineCollection.findFirst({
+        where: { id: collectionId },
+        include: { cycle: { include: { client: true } } },
+      });
+
+      if (!collection) {
+        throw new NotFoundException('Echeance introuvable');
+      }
+
+      if (collection.status === 'COLLECTE') {
+        throw new BadRequestException('Cette echeance a deja ete collectee');
+      }
+
+      this.checkClientAccess(collection.cycle.client, currentUser);
+
+      const transaction = await this.transactionsService.createTransaction(
+        {
+          clientId: collection.cycle.clientId,
+          type: 'TONTINE_COLLECTION' as any,
+          amount: Number(collection.cycle.amountPerCollection),
+          idempotencyKey: dto.idempotencyKey,
+          description: `Collecte tontine ${collection.cycle.cycleNumber} - echeance du ${collection.scheduledDate.toISOString().slice(0, 10)}`,
+        },
+        currentUser,
+        tx,
+      );
+
+      const updatedCollection = await tx.tontineCollection.update({
+        where: { id: collectionId },
+        data: {
+          status: 'COLLECTE',
+          collectedAt: new Date(), // toujours la date REELLE, meme si c'est un rattrapage d'un jour marque MANQUE
+          transactionId: transaction.id,
+          collectedById: currentUser.id,
+        },
+      });
+
+      return { transaction, collection: updatedCollection };
+    });
+  }
 }
