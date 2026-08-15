@@ -85,10 +85,10 @@ model User {
 
   // agence ou branch
   branchId              String?
-  branch                Branch?       @relation(fields: [branchId], references: [id])
+  branch                Branch?             @relation(fields: [branchId], references: [id])
   transactionsPerformed Transaction[]
-  assignedClients Client[] @relation("AssignedClients")
-
+  assignedClients       Client[]            @relation("AssignedClients")
+tontineCollectionsValidated TontineCollection[]
   @@map("users")
 }
 
@@ -154,7 +154,7 @@ model Branch {
   updatedAt       DateTime         @updatedAt
   deletedAt       DateTime? // soft delete, meme regle que partout ailleurs dans ce projet
   savingsAccounts SavingsAccount[]
-
+  tontineCycles   TontineCycle[]
   @@map("branches")
 }
 
@@ -204,12 +204,12 @@ model Client {
   transactions    Transaction[]
   savingsAccounts SavingsAccount[]
 
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
   assignedAgentId String?
-  assignedAgent   User?   @relation("AssignedClients", fields: [assignedAgentId], references: [id])
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  assignedAgent   User?          @relation("AssignedClients", fields: [assignedAgentId], references: [id])
+  tontineCycles   TontineCycle[]
 
   @@map("clients")
 }
@@ -254,7 +254,8 @@ model Transaction {
 
   createdAt DateTime @default(now())
 
-  savingsAccounts SavingsAccount[]
+  savingsAccounts   SavingsAccount[]
+  tontineCollection TontineCollection?
 
   @@index([clientId])
   @@index([branchId, createdAt])
@@ -287,4 +288,69 @@ model SavingsAccount {
 
   @@index([clientId])
   @@map("savings_accounts")
+}
+
+//tontine
+
+enum TontineCycleStatus {
+  ACTIVE
+  CLOSED
+}
+
+model TontineCycle {
+  id          String @id @default(uuid())
+  cycleNumber String @unique
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  amountPerCollection Decimal  @db.Decimal(15, 2)
+  durationMonths      Int // entre 1 et 12, valide au niveau du DTO
+  startDate           DateTime
+  endDate             DateTime // calculee automatiquement : startDate + durationMonths
+
+  allowedWeekdays Int[] // 1=lundi ... 7=dimanche
+
+  status         TontineCycleStatus @default(ACTIVE)
+  commissionRate Decimal            @default(0.05) @db.Decimal(5, 4)
+
+  collections TontineCollection[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+
+  @@map("tontine_cycles")
+}
+
+enum CollectionStatus {
+  A_COLLECTER
+  COLLECTE
+  MANQUE
+}
+
+model TontineCollection {
+  id String @id @default(uuid())
+
+  cycleId String
+  cycle   TontineCycle @relation(fields: [cycleId], references: [id])
+
+  scheduledDate DateTime
+  collectedAt   DateTime?
+
+  status CollectionStatus @default(A_COLLECTER)
+
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+
+  collectedById String?
+  collectedBy   User?   @relation(fields: [collectedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([cycleId, scheduledDate])
+  @@map("tontine_collections")
 }

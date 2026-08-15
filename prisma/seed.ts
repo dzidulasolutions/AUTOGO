@@ -33,6 +33,7 @@ const PERMISSIONS = [
   { key: 'savings:create', description: 'Ouvrir un compte epargne' },
   { key: 'savings:deposit', description: 'Deposer sur un compte epargne' },
   { key: 'savings:withdraw', description: "Retirer d'un compte epargne" },
+  { key: 'tontines:create', description: 'Creer un cycle de tontine' },
 ];
 
 async function main() {
@@ -90,15 +91,19 @@ async function main() {
   const clientsCreatePerm = permissions.find(
     (p) => p.key === 'clients:create',
   )!;
+
   const clientsUpdatePerm = permissions.find(
     (p) => p.key === 'clients:update',
   )!;
+
   const clientsDeletePerm = permissions.find(
     (p) => p.key === 'clients:delete',
   )!;
+
   const transactionsCreatePerm = permissions.find(
     (p) => p.key === 'transactions:create',
   )!;
+
   const transactionsCancelPerm = permissions.find(
     (p) => p.key === 'transactions:cancel',
   )!;
@@ -152,9 +157,11 @@ async function main() {
   const savingsCreatePerm = permissions.find(
     (p) => p.key === 'savings:create',
   )!;
+
   const savingsDepositPerm = permissions.find(
     (p) => p.key === 'savings:deposit',
   )!;
+
   const savingsWithdrawPerm = permissions.find(
     (p) => p.key === 'savings:withdraw',
   )!;
@@ -170,6 +177,25 @@ async function main() {
           create: { roleId: role.id, permissionId: perm.id },
         }),
       ),
+    ),
+  );
+
+  const tontinesCreatePerm = permissions.find(
+    (p) => p.key === 'tontines:create',
+  )!;
+
+  await Promise.all(
+    [agentRole, managerRole, caissierRole].map((role) =>
+      prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: role.id,
+            permissionId: tontinesCreatePerm.id,
+          },
+        },
+        update: {},
+        create: { roleId: role.id, permissionId: tontinesCreatePerm.id },
+      }),
     ),
   );
 
