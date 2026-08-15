@@ -25,7 +25,11 @@ export class TontinesController {
     return this.tontinesService.createCycle(dto, req.user);
   }
 
-
+  @Get('cycles/:id/collections')
+  @ApiOperation({ summary: "Voir le calendrier complet d'un cycle (carnet)" })
+  getCycleCollections(@Param('id') id: string, @Req() req) {
+    return this.tontinesService.getCycleCollections(id, req.user);
+  }
 
   @Patch('collections/:id/validate')
   @RequirePermissions('tontines:create') // reutilise la meme permission pour l'instant

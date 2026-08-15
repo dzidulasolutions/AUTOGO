@@ -202,4 +202,43 @@ export class TontinesService {
       };
     });
   }
+
+  async getCycleCollections(cycleId: string, currentUser: CurrentUser) {
+  const cycle = await this.prisma.tontineCycle.findFirst({
+    where: { id: cycleId },
+    include: { client: true },
+  });
+
+  if (!cycle) {
+    throw new NotFoundException('Cycle introuvable');
+  }
+
+  this.checkClientAccess(cycle.client, currentUser);
+
+  const collections = await this.prisma.tontineCollection.findMany({
+    where: { cycleId },
+    orderBy: { scheduledDate: 'asc' },
+  });
+
+  // Resume de progression, dans l'esprit du "carnet numerique" defini en Phase 4
+  const collected = collections.filter((c) => c.status === 'COLLECTE').length;
+  const missed = collections.filter((c) => c.status === 'MANQUE').length;
+  const pending = collections.filter((c) => c.status === 'A_COLLECTER').length;
+
+  return {
+    cycle: {
+      cycleNumber: cycle.cycleNumber,
+      amountPerCollection: cycle.amountPerCollection,
+      status: cycle.status,
+    },
+    progression: {
+      total: collections.length,
+      collected,
+      missed,
+      pending,
+      amountCollected: collected * Number(cycle.amountPerCollection),
+    },
+    collections,
+  };
+}
 }
