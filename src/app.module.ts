@@ -21,6 +21,7 @@ import { SavingsModule } from './modules/savings/savings.module';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TontinesModule } from './modules/tontines/tontines.module';
+import { LoansModule } from './modules/loans/loans.module';
 import Redis from 'ioredis';
 
 @Module({
@@ -77,6 +78,7 @@ import Redis from 'ioredis';
     TransactionsModule,
     SavingsModule,
     TontinesModule,
+    LoansModule,
   ],
   controllers: [AppController],
   providers: [

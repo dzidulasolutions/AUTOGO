@@ -84,11 +84,15 @@ model User {
   profile   UserProfile?
 
   // agence ou branch
-  branchId              String?
-  branch                Branch?             @relation(fields: [branchId], references: [id])
-  transactionsPerformed Transaction[]
-  assignedClients       Client[]            @relation("AssignedClients")
-tontineCollectionsValidated TontineCollection[]
+  branchId                    String?
+  branch                      Branch?             @relation(fields: [branchId], references: [id])
+  transactionsPerformed       Transaction[]
+  assignedClients             Client[]            @relation("AssignedClients")
+  tontineCollectionsValidated TontineCollection[]
+
+  loansRequested Loan[] @relation("LoanRequestedBy")
+  loansApproved  Loan[] @relation("LoanApprovedBy")
+
   @@map("users")
 }
 
@@ -155,6 +159,10 @@ model Branch {
   deletedAt       DateTime? // soft delete, meme regle que partout ailleurs dans ce projet
   savingsAccounts SavingsAccount[]
   tontineCycles   TontineCycle[]
+
+  loanApprovalLimit Decimal @default(500000) @db.Decimal(15, 2) // plafond a partir duquel Admin doit approuver
+  loans             Loan[]
+
   @@map("branches")
 }
 
@@ -210,6 +218,7 @@ model Client {
   assignedAgentId String?
   assignedAgent   User?          @relation("AssignedClients", fields: [assignedAgentId], references: [id])
   tontineCycles   TontineCycle[]
+  loans           Loan[]
 
   @@map("clients")
 }
@@ -256,6 +265,7 @@ model Transaction {
 
   savingsAccounts   SavingsAccount[]
   tontineCollection TontineCollection?
+  loanSchedule      LoanSchedule?
 
   @@index([clientId])
   @@index([branchId, createdAt])
@@ -353,4 +363,85 @@ model TontineCollection {
 
   @@unique([cycleId, scheduledDate])
   @@map("tontine_collections")
+}
+
+// pret
+
+enum LoanStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  DISBURSED
+  CLOSED
+}
+
+enum LoanFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model Loan {
+  id         String @id @default(uuid())
+  loanNumber String @unique
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  principal      Decimal       @db.Decimal(15, 2) // montant emprunte, hors interet
+  interestRate   Decimal       @db.Decimal(5, 4) // taux fixe au moment de la demande, fige pour ce pret
+  durationMonths Int
+  frequency      LoanFrequency
+
+  status LoanStatus @default(DRAFT)
+
+  requestedById String
+  requestedBy   User   @relation("LoanRequestedBy", fields: [requestedById], references: [id])
+
+  approvedById    String?
+  approvedBy      User?     @relation("LoanApprovedBy", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  disbursedAt DateTime?
+
+  schedules LoanSchedule[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+
+  @@map("loans")
+}
+
+enum LoanScheduleStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+model LoanSchedule {
+  id String @id @default(uuid())
+
+  loanId String
+  loan   Loan   @relation(fields: [loanId], references: [id])
+
+  installmentNumber Int // 1, 2, 3... position dans l'echeancier
+  dueDate           DateTime
+  amountDue         Decimal  @db.Decimal(15, 2)
+
+  status LoanScheduleStatus @default(PENDING)
+  paidAt DateTime?
+
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("loan_schedules")
+  @@unique([loanId, installmentNumber])
 }

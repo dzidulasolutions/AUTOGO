@@ -34,6 +34,11 @@ const PERMISSIONS = [
   { key: 'savings:deposit', description: 'Deposer sur un compte epargne' },
   { key: 'savings:withdraw', description: "Retirer d'un compte epargne" },
   { key: 'tontines:create', description: 'Creer un cycle de tontine' },
+  {
+    key: 'loans:create',
+    description: 'Creer et soumettre une demande de pret',
+  },
+  { key: 'loans:approve', description: 'Approuver ou rejeter un pret' },
 ];
 
 async function main() {
@@ -154,17 +159,9 @@ async function main() {
     },
   });
 
-  const savingsCreatePerm = permissions.find(
-    (p) => p.key === 'savings:create',
-  )!;
-
-  const savingsDepositPerm = permissions.find(
-    (p) => p.key === 'savings:deposit',
-  )!;
-
-  const savingsWithdrawPerm = permissions.find(
-    (p) => p.key === 'savings:withdraw',
-  )!;
+  const savingsCreatePerm = permissions.find((p) => p.key === 'savings:create',)!;
+  const savingsDepositPerm = permissions.find((p) => p.key === 'savings:deposit',)!;
+  const savingsWithdrawPerm = permissions.find((p) => p.key === 'savings:withdraw',)!;
 
   await Promise.all(
     [agentRole, managerRole, caissierRole].flatMap((role) =>
@@ -180,10 +177,7 @@ async function main() {
     ),
   );
 
-  const tontinesCreatePerm = permissions.find(
-    (p) => p.key === 'tontines:create',
-  )!;
-
+  const tontinesCreatePerm = permissions.find((p) => p.key === 'tontines:create',)!;
   await Promise.all(
     [agentRole, managerRole, caissierRole].map((role) =>
       prisma.rolePermission.upsert({
@@ -198,6 +192,38 @@ async function main() {
       }),
     ),
   );
+
+  //PRET
+
+  const loansCreatePerm = permissions.find((p) => p.key === 'loans:create')!;
+  const loansApprovePerm = permissions.find((p) => p.key === 'loans:approve')!;
+  // Agent et Caissier : soumettent des demandes, jamais n'approuvent
+  await Promise.all(
+    [agentRole, caissierRole].map((role) =>
+      prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: role.id,
+            permissionId: loansCreatePerm.id,
+          },
+        },
+        update: {},
+        create: { roleId: role.id, permissionId: loansCreatePerm.id },
+      }),
+    ),
+  );
+
+  // Manager : approuve uniquement, jamais ne cree de demande
+  await prisma.rolePermission.upsert({
+    where: {
+      roleId_permissionId: {
+        roleId: managerRole.id,
+        permissionId: loansApprovePerm.id,
+      },
+    },
+    update: {},
+    create: { roleId: managerRole.id, permissionId: loansApprovePerm.id },
+  });
 
   console.log('Seed termine avec succes');
 }
