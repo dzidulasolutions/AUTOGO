@@ -410,7 +410,7 @@ model Loan {
   disbursedAt DateTime?
 
   schedules LoanSchedule[]
-
+  allowedWeekdays Int[] @default([1, 2, 3, 4, 5]) // lundi-vendredi par defaut si non precise
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   closedAt  DateTime?

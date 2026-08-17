@@ -10,12 +10,16 @@ import { RejectLoanDto } from './dto/reject-loan.dto';
 import { formatLoanNumber } from './utils/loan-number.util';
 import { FIXED_INTEREST_RATE } from './constants/loan.constants';
 import { LoanFiltersDto } from './dto/loan-filters.dto';
+import { TransactionsService } from '../transactions/transactions.service';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
 @Injectable()
 export class LoansService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private transactionsService: TransactionsService,
+  ) {}
 
   private isPrivileged(role: string): boolean {
     return ['SuperAdmin', 'Admin'].includes(role);
@@ -208,5 +212,131 @@ export class LoansService {
       throw new NotFoundException('Pret introuvable');
     }
     return loan;
+  }
+
+  async disburse(
+    loanId: string,
+    dto: { idempotencyKey: string },
+    currentUser: CurrentUser,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const loan = await tx.loan.findFirst({
+        where: { id: loanId, status: 'APPROVED' },
+        include: { client: true },
+      });
+
+      if (!loan) {
+        throw new NotFoundException('Pret introuvable ou pas approuve');
+      }
+
+      this.checkClientAccess(loan.client, currentUser);
+
+      // Calcul de l'amortissement lineaire simple
+      const principal = Number(loan.principal);
+      const interestRate = Number(loan.interestRate);
+      const totalInterest = principal * interestRate;
+      const totalToRepay = principal + totalInterest;
+      const numberOfInstallments = this.getInstallmentCount(
+        loan.durationMonths,
+        loan.frequency,
+      );
+      const installmentAmounts = this.generateInstallmentAmounts(
+        totalToRepay,
+        numberOfInstallments,
+      );
+
+      // Genere l'echeancier complet
+      const scheduleDates = this.generateScheduleDates(
+        new Date(),
+        numberOfInstallments,
+        loan.frequency,
+      );
+      const schedulesToCreate = scheduleDates.map((date, index) => ({
+        loanId: loan.id,
+        installmentNumber: index + 1,
+        dueDate: date,
+        amountDue: installmentAmounts[index],
+      }));
+
+      await tx.loanSchedule.createMany({ data: schedulesToCreate });
+
+      // Transaction de decaissement : l'argent sort reellement vers le client
+      const transaction = await this.transactionsService.createTransaction(
+        {
+          clientId: loan.clientId,
+          type: 'LOAN_DISBURSEMENT' as any,
+          amount: principal,
+          idempotencyKey: dto.idempotencyKey,
+          description: `Decaissement pret ${loan.loanNumber}`,
+        },
+        currentUser,
+        tx,
+      );
+
+      const updatedLoan = await tx.loan.update({
+        where: { id: loanId },
+        data: { status: 'DISBURSED', disbursedAt: new Date() },
+      });
+
+      return {
+        loan: updatedLoan,
+        transaction,
+        totalToRepay,
+        amountPerInstallment: installmentAmounts[0],
+        numberOfInstallments,
+      };
+    });
+  }
+
+  private getInstallmentCount(
+    durationMonths: number,
+    frequency: string,
+  ): number {
+    const daysMap: Record<string, number> = {
+      DAILY: 30,
+      WEEKLY: 4,
+      MONTHLY: 1,
+    };
+    return durationMonths * daysMap[frequency];
+  }
+
+  private generateScheduleDates(
+    startDate: Date,
+    count: number,
+    frequency: string,
+  ): Date[] {
+    const dates: Date[] = [];
+    const cursor = new Date(startDate);
+    const incrementMap: Record<string, () => void> = {
+      DAILY: () => cursor.setDate(cursor.getDate() + 1),
+      WEEKLY: () => cursor.setDate(cursor.getDate() + 7),
+      MONTHLY: () => cursor.setMonth(cursor.getMonth() + 1),
+    };
+
+    for (let i = 0; i < count; i++) {
+      incrementMap[frequency]();
+      dates.push(new Date(cursor));
+    }
+
+    return dates;
+  }
+
+  private roundToNearestPractical(amount: number): number {
+    return Math.floor(amount / 50) * 50; // toujours vers le bas, jamais au-dessus du total du
+  }
+
+  private generateInstallmentAmounts(
+    totalToRepay: number,
+    count: number,
+  ): number[] {
+    const baseAmount = this.roundToNearestPractical(totalToRepay / count);
+    const amounts = new Array(count - 1).fill(baseAmount);
+
+    const sumOfFirstInstallments = baseAmount * (count - 1);
+    const lastInstallment =
+      Math.round((totalToRepay - sumOfFirstInstallments) * 100) / 100;
+    amounts.push(lastInstallment);
+
+    return amounts;
   }
 }

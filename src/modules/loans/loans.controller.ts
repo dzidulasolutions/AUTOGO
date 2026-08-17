@@ -65,4 +65,16 @@ export class LoansController {
   reject(@Param('id') id: string, @Body() dto: RejectLoanDto, @Req() req) {
     return this.loansService.reject(id, dto, req.user);
   }
+
+  @Patch(':id/disburse')
+  @RequirePermissions('loans:approve')
+  @AuditResource('Loan')
+  @ApiOperation({ summary: 'Decaisser un pret approuve' })
+  disburse(
+    @Param('id') id: string,
+    @Body() dto: { idempotencyKey: string },
+    @Req() req,
+  ) {
+    return this.loansService.disburse(id, dto, req.user);
+  }
 }
