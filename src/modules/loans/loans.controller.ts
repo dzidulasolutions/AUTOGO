@@ -42,6 +42,12 @@ export class LoansController {
     return this.loansService.findOne(id, req.user);
   }
 
+  @Get(':id/schedule')
+  @ApiOperation({ summary: 'Voir le carnet de remboursement complet (carnet)' })
+  getLoanSchedule(@Param('id') id: string, @Req() req) {
+    return this.loansService.getLoanSchedule(id, req.user);
+  }
+
   @Patch(':id/submit')
   @RequirePermissions('loans:create')
   @AuditResource('Loan')

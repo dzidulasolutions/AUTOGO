@@ -250,6 +250,7 @@ export class LoansService {
         new Date(),
         numberOfInstallments,
         loan.frequency,
+        loan.allowedWeekdays,
       );
       const schedulesToCreate = scheduleDates.map((date, index) => ({
         loanId: loan.id,
@@ -304,18 +305,29 @@ export class LoansService {
     startDate: Date,
     count: number,
     frequency: string,
+    allowedWeekdays: number[],
   ): Date[] {
     const dates: Date[] = [];
     const cursor = new Date(startDate);
-    const incrementMap: Record<string, () => void> = {
-      DAILY: () => cursor.setDate(cursor.getDate() + 1),
-      WEEKLY: () => cursor.setDate(cursor.getDate() + 7),
-      MONTHLY: () => cursor.setMonth(cursor.getMonth() + 1),
-    };
 
-    for (let i = 0; i < count; i++) {
-      incrementMap[frequency]();
-      dates.push(new Date(cursor));
+    if (frequency === 'DAILY') {
+      // Avance jour par jour, ne retient que les jours autorises
+      while (dates.length < count) {
+        cursor.setDate(cursor.getDate() + 1);
+        const isoWeekday = cursor.getDay() === 0 ? 7 : cursor.getDay();
+        if (allowedWeekdays.includes(isoWeekday)) {
+          dates.push(new Date(cursor));
+        }
+      }
+    } else {
+      const incrementMap: Record<string, () => void> = {
+        WEEKLY: () => cursor.setDate(cursor.getDate() + 7),
+        MONTHLY: () => cursor.setMonth(cursor.getMonth() + 1),
+      };
+      for (let i = 0; i < count; i++) {
+        incrementMap[frequency]();
+        dates.push(new Date(cursor));
+      }
     }
 
     return dates;
@@ -338,5 +350,47 @@ export class LoansService {
     amounts.push(lastInstallment);
 
     return amounts;
+  }
+
+  // carnet de remboursement
+  async getLoanSchedule(loanId: string, currentUser: CurrentUser) {
+    const loan = await this.prisma.loan.findFirst({
+      where: { id: loanId, ...this.buildScopeWhere(currentUser) },
+    });
+    if (!loan) {
+      throw new NotFoundException('Pret introuvable');
+    }
+
+    const schedules = await this.prisma.loanSchedule.findMany({
+      where: { loanId },
+      orderBy: { installmentNumber: 'asc' },
+    });
+
+    const paid = schedules.filter((s) => s.status === 'PAID').length;
+    const overdue = schedules.filter((s) => s.status === 'OVERDUE').length;
+    const pending = schedules.filter((s) => s.status === 'PENDING').length;
+    const amountPaid = schedules
+      .filter((s) => s.status === 'PAID')
+      .reduce((sum, s) => sum + Number(s.amountDue), 0);
+    const amountRemaining = schedules
+      .filter((s) => s.status !== 'PAID')
+      .reduce((sum, s) => sum + Number(s.amountDue), 0);
+
+    return {
+      loan: {
+        loanNumber: loan.loanNumber,
+        principal: loan.principal,
+        status: loan.status,
+      },
+      progression: {
+        total: schedules.length,
+        paid,
+        overdue,
+        pending,
+        amountPaid,
+        amountRemaining,
+      },
+      schedules,
+    };
   }
 }

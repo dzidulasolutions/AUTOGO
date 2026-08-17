@@ -1,5 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsUUID, IsNumber, IsPositive, IsInt, Min, Max, IsEnum } from 'class-validator';
+import {
+  IsUUID,
+  IsNumber,
+  IsPositive,
+  IsInt,
+  Min,
+  Max,
+  IsEnum,
+  IsOptional,
+  IsArray,
+} from 'class-validator';
 
 export enum LoanFrequencyDto {
   DAILY = 'DAILY',
@@ -26,4 +36,14 @@ export class CreateLoanDto {
   @ApiProperty({ enum: LoanFrequencyDto })
   @IsEnum(LoanFrequencyDto)
   frequency!: LoanFrequencyDto;
+
+  @ApiProperty({
+    required: false,
+    example: [1, 2, 3, 4, 5],
+    description:
+      'Jours autorises pour frequence DAILY, lundi-vendredi par defaut',
+  })
+  @IsOptional()
+  @IsArray()
+  allowedWeekdays?: number[];
 }
