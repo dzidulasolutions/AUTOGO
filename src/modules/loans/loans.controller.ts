@@ -15,12 +15,16 @@ import { RejectLoanDto } from './dto/reject-loan.dto';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
 import { LoanFiltersDto } from './dto/loan-filters.dto';
+import { OverdueSchedulerService } from './overdue-scheduler.service';
 
 @ApiTags('loans')
 @ApiBearerAuth()
 @Controller('loans')
 export class LoansController {
-  constructor(private loansService: LoansService) {}
+  constructor(
+    private loansService: LoansService,
+    private overdueScheduler: OverdueSchedulerService,
+  ) {}
 
   @Post()
   @RequirePermissions('loans:create')
@@ -28,6 +32,13 @@ export class LoansController {
   @ApiOperation({ summary: 'Creer une demande de pret (brouillon)' })
   create(@Body() dto: CreateLoanDto, @Req() req) {
     return this.loansService.create(dto, req.user);
+  }
+
+  @Post('trigger-overdue-check-test')
+  @RequirePermissions('loans:approve')
+  async triggerOverdueCheckTest() {
+    await this.overdueScheduler.scheduleOverdueCheck();
+    return { message: 'Verification des echeances en retard declenchee' };
   }
 
   @Get()
