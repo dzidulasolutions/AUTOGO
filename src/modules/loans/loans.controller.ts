@@ -16,6 +16,7 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
 import { LoanFiltersDto } from './dto/loan-filters.dto';
 import { OverdueSchedulerService } from './overdue-scheduler.service';
+import { RescheduleLoanDto } from './dto/reschedule-loan.dto';
 
 @ApiTags('loans')
 @ApiBearerAuth()
@@ -105,5 +106,17 @@ export class LoansController {
     @Req() req,
   ) {
     return this.loansService.recordRepayment(id, dto, req.user);
+  }
+
+  @Patch(':id/reschedule')
+  @RequirePermissions('loans:approve')
+  @AuditResource('Loan')
+  @ApiOperation({ summary: "Reechelonner les echeances restantes d'un pret" })
+  reschedule(
+    @Param('id') id: string,
+    @Body() dto: RescheduleLoanDto,
+    @Req() req,
+  ) {
+    return this.loansService.reschedule(id, dto, req.user);
   }
 }

@@ -11,6 +11,7 @@ import { formatLoanNumber } from './utils/loan-number.util';
 import { FIXED_INTEREST_RATE } from './constants/loan.constants';
 import { LoanFiltersDto } from './dto/loan-filters.dto';
 import { TransactionsService } from '../transactions/transactions.service';
+import { RescheduleLoanDto } from './dto/reschedule-loan.dto';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -489,5 +490,83 @@ export class LoansService {
     });
   }
 
+  // reechelonnage
+  async reschedule(
+    loanId: string,
+    dto: RescheduleLoanDto,
+    currentUser: CurrentUser,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const loan = await tx.loan.findFirst({
+        where: { id: loanId, status: 'DISBURSED' },
+        include: { client: true },
+      });
+      if (!loan) {
+        throw new NotFoundException('Pret introuvable ou pas decaisse');
+      }
+      this.checkClientAccess(loan.client, currentUser);
 
+      const unpaidSchedules = await tx.loanSchedule.findMany({
+        where: { loanId, status: { in: ['PENDING', 'OVERDUE'] } },
+      });
+
+      if (unpaidSchedules.length === 0) {
+        throw new BadRequestException(
+          'Aucune echeance restante a reechelonner',
+        );
+      }
+
+      const remainingAmount = unpaidSchedules.reduce(
+        (sum, s) => sum + Number(s.amountDue),
+        0,
+      );
+      const newTotal = remainingAmount + (dto.penaltyAmount ?? 0);
+
+      // Determine le nombre de nouvelles echeances selon la frequence existante du pret
+      const newInstallmentCount = this.getInstallmentCount(
+        dto.newDurationMonths,
+        loan.frequency,
+      );
+      const newInstallmentAmounts = this.generateInstallmentAmounts(
+        newTotal,
+        newInstallmentCount,
+      );
+      const newScheduleDates = this.generateScheduleDates(
+        new Date(),
+        newInstallmentCount,
+        loan.frequency,
+        loan.allowedWeekdays,
+      );
+
+      // Annule les anciennes echeances non payees, sans les supprimer (historique preserve)
+      await tx.loanSchedule.updateMany({
+        where: { id: { in: unpaidSchedules.map((s) => s.id) } },
+        data: { status: 'CANCELLED' },
+      });
+
+      // Determine le prochain numero d'echeance a utiliser, pour ne pas entrer en conflit avec les anciennes
+      const maxInstallmentNumber = await tx.loanSchedule.aggregate({
+        where: { loanId },
+        _max: { installmentNumber: true },
+      });
+      const startingNumber =
+        (maxInstallmentNumber._max.installmentNumber ?? 0) + 1;
+
+      const newSchedulesToCreate = newScheduleDates.map((date, index) => ({
+        loanId,
+        installmentNumber: startingNumber + index,
+        dueDate: date,
+        amountDue: newInstallmentAmounts[index],
+      }));
+
+      await tx.loanSchedule.createMany({ data: newSchedulesToCreate });
+
+      return {
+        cancelledSchedules: unpaidSchedules.length,
+        newSchedulesCreated: newSchedulesToCreate.length,
+        newTotal,
+        penaltyApplied: dto.penaltyAmount ?? 0,
+      };
+    });
+  }
 }
