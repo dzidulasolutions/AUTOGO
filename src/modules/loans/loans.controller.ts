@@ -83,4 +83,16 @@ export class LoansController {
   ) {
     return this.loansService.disburse(id, dto, req.user);
   }
+
+  @Patch(':id/repay')
+  @RequirePermissions('loans:create') // meme permission que la creation, Agent/Caissier collectent les remboursements
+  @AuditResource('Loan')
+  @ApiOperation({ summary: 'Enregistrer un remboursement (imputation FIFO)' })
+  repay(
+    @Param('id') id: string,
+    @Body() dto: { amount: number; idempotencyKey: string },
+    @Req() req,
+  ) {
+    return this.loansService.recordRepayment(id, dto, req.user);
+  }
 }

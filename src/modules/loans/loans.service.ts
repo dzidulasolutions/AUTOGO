@@ -393,4 +393,101 @@ export class LoansService {
       schedules,
     };
   }
+
+  // enregistrement dans transaction
+  async recordRepayment(
+    loanId: string,
+    dto: { amount: number; idempotencyKey: string },
+    currentUser: CurrentUser,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const loan = await tx.loan.findFirst({
+        where: { id: loanId, status: 'DISBURSED' },
+        include: { client: true },
+      });
+      if (!loan) {
+        throw new NotFoundException('Pret introuvable ou pas decaisse');
+      }
+      this.checkClientAccess(loan.client, currentUser);
+
+      // Recupere les echeances impayees, dans l'ordre chronologique (FIFO)
+      const unpaidSchedules = await tx.loanSchedule.findMany({
+        where: { loanId, status: { in: ['PENDING', 'OVERDUE'] } },
+        orderBy: { installmentNumber: 'asc' },
+      });
+
+      if (unpaidSchedules.length === 0) {
+        throw new BadRequestException('Toutes les echeances sont deja payees');
+      }
+
+      // Determine combien d'echeances completes ce montant peut couvrir, dans l'ordre
+      let remainingAmount = dto.amount;
+      const schedulesToPay: typeof unpaidSchedules = [];
+
+      for (const schedule of unpaidSchedules) {
+        const amountDue = Number(schedule.amountDue);
+        if (remainingAmount >= amountDue) {
+          schedulesToPay.push(schedule);
+          remainingAmount -= amountDue;
+        } else {
+          break; // le montant restant ne suffit plus pour l'echeance suivante
+        }
+      }
+
+      if (schedulesToPay.length === 0) {
+        throw new BadRequestException(
+          `Montant insuffisant pour couvrir la prochaine echeance (${unpaidSchedules[0].amountDue} FCFA requis)`,
+        );
+      }
+
+      if (remainingAmount > 0) {
+        throw new BadRequestException(
+          `Le montant ne correspond pas exactement a un nombre entier d'echeances (surplus de ${remainingAmount} FCFA)`,
+        );
+      }
+
+      const transaction = await this.transactionsService.createTransaction(
+        {
+          clientId: loan.clientId,
+          type: 'LOAN_REPAYMENT' as any,
+          amount: dto.amount,
+          idempotencyKey: dto.idempotencyKey,
+          description: `Remboursement pret ${loan.loanNumber} (${schedulesToPay.length} echeance(s))`,
+        },
+        currentUser,
+        tx,
+      );
+
+      // Marque chaque echeance couverte comme payee, liee a cette transaction
+      for (const schedule of schedulesToPay) {
+        await tx.loanSchedule.update({
+          where: { id: schedule.id },
+          data: {
+            status: 'PAID',
+            paidAt: new Date(),
+            transactionId: transaction.id,
+          },
+        });
+      }
+
+      // Cloture automatique si c'etait la derniere echeance
+      const remainingUnpaid = await tx.loanSchedule.count({
+        where: { loanId, status: { in: ['PENDING', 'OVERDUE'] } },
+      });
+      if (remainingUnpaid === 0) {
+        await tx.loan.update({
+          where: { id: loanId },
+          data: { status: 'CLOSED', closedAt: new Date() },
+        });
+      }
+
+      return {
+        transaction,
+        schedulesPaid: schedulesToPay.length,
+        loanClosed: remainingUnpaid === 0,
+      };
+    });
+  }
+
+
 }
