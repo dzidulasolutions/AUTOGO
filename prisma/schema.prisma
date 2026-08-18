@@ -258,6 +258,8 @@ model Transaction {
   idempotencyKey String  @unique // evite les doublons en cas de double appel reseau
   description    String?
 
+  receiptUrl String?
+
   cancelledAt   DateTime?
   cancelledById String?
 

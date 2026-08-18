@@ -10,12 +10,17 @@ import { formatTransactionNumber } from './utils/transaction-number.util';
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 import { CancelTransactionDto } from './dto/cancel-transaction.dto';
 import { Prisma } from '../../../generated/prisma/client';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @InjectQueue('pdf') private pdfQueue: Queue,
+  ) {}
 
   private isPrivileged(role: string): boolean {
     return ['SuperAdmin', 'Admin'].includes(role);
@@ -26,7 +31,7 @@ export class TransactionsService {
     currentUser: CurrentUser,
     tx?: Prisma.TransactionClient,
   ) {
-    const db = tx ?? this.prisma; // utilise le client transactionnel fourni, sinon le client normal
+    const db = tx ?? this.prisma;
 
     const existing = await db.transaction.findUnique({
       where: { idempotencyKey: dto.idempotencyKey },
@@ -69,7 +74,8 @@ export class TransactionsService {
       Number(seqResult[0].nextval),
     );
 
-    return db.transaction.create({
+    // 1. On cree d'abord la transaction
+    const transaction = await db.transaction.create({
       data: {
         transactionNumber,
         type: dto.type,
@@ -81,6 +87,13 @@ export class TransactionsService {
         description: dto.description,
       },
     });
+
+    // 2. Puis on declenche la generation du recu, une fois qu'on a bien son id
+    await this.pdfQueue.add('generate-receipt', {
+      transactionId: transaction.id,
+    });
+
+    return transaction;
   }
 
   async findAll(currentUser: CurrentUser, filters: TransactionFiltersDto) {
