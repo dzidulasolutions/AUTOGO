@@ -12,6 +12,8 @@ import { FIXED_INTEREST_RATE } from './constants/loan.constants';
 import { LoanFiltersDto } from './dto/loan-filters.dto';
 import { TransactionsService } from '../transactions/transactions.service';
 import { RescheduleLoanDto } from './dto/reschedule-loan.dto';
+import { generatePassbookPdf } from '../notifications/generators/passbook.generator';
+
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -569,4 +571,25 @@ export class LoansService {
       };
     });
   }
+
+
+async generatePassbookPdf(loanId: string, currentUser: CurrentUser): Promise<Buffer> {
+  const data = await this.getLoanSchedule(loanId, currentUser); // reutilise ce qu'on a deja construit
+
+  return generatePassbookPdf({
+    title: `Echeancier Pret ${data.loan.loanNumber}`,
+    clientName: '', // getLoanSchedule ne renvoie pas le nom du client actuellement, laisse vide pour l'instant
+    entries: data.schedules.map((s) => ({
+      label: `Echeance ${s.installmentNumber} - ${new Date(s.dueDate).toLocaleDateString('fr-FR')}`,
+      amount: Number(s.amountDue),
+      status: s.status,
+    })),
+    summary: {
+      total: data.progression.total,
+      completed: data.progression.paid,
+      pending: data.progression.pending,
+      amountDone: data.progression.amountPaid,
+    },
+  });
+}
 }

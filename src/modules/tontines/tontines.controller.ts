@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req } from '@nestjs/common';
+import { Controller, Post, Body, Req, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TontinesService } from './tontines.service';
 import { CreateCycleDto } from './dto/create-cycle.dto';
@@ -7,6 +7,7 @@ import { AuditResource } from '../../common/decorators/audit-resource.decorator'
 import { Patch, Param } from '@nestjs/common';
 import { MissedCollectionSchedulerService } from './missed-collection-scheduler.service';
 import { Get } from '@nestjs/common';
+import type { Response } from 'express';
 
 @ApiTags('tontines')
 @ApiBearerAuth()
@@ -29,6 +30,24 @@ export class TontinesController {
   @ApiOperation({ summary: "Voir le calendrier complet d'un cycle (carnet)" })
   getCycleCollections(@Param('id') id: string, @Req() req) {
     return this.tontinesService.getCycleCollections(id, req.user);
+  }
+
+  @Get('cycles/:id/passbook-pdf')
+  @ApiOperation({ summary: 'Telecharger le carnet en PDF' })
+  async downloadPassbook(
+    @Param('id') id: string,
+    @Req() req,
+    @Res() res: Response,
+  ) {
+    const pdfBuffer = await this.tontinesService.generatePassbookPdf(
+      id,
+      req.user,
+    );
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="carnet-tontine.pdf"',
+    });
+    res.send(pdfBuffer);
   }
 
   @Patch('collections/:id/validate')

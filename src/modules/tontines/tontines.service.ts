@@ -8,6 +8,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { CreateCycleDto } from './dto/create-cycle.dto';
 import { formatCycleNumber } from './utils/cycle-number.util';
+import { generatePassbookPdf } from '../notifications/generators/passbook.generator';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -204,41 +205,66 @@ export class TontinesService {
   }
 
   async getCycleCollections(cycleId: string, currentUser: CurrentUser) {
-  const cycle = await this.prisma.tontineCycle.findFirst({
-    where: { id: cycleId },
-    include: { client: true },
-  });
+    const cycle = await this.prisma.tontineCycle.findFirst({
+      where: { id: cycleId },
+      include: { client: true },
+    });
 
-  if (!cycle) {
-    throw new NotFoundException('Cycle introuvable');
+    if (!cycle) {
+      throw new NotFoundException('Cycle introuvable');
+    }
+
+    this.checkClientAccess(cycle.client, currentUser);
+
+    const collections = await this.prisma.tontineCollection.findMany({
+      where: { cycleId },
+      orderBy: { scheduledDate: 'asc' },
+    });
+
+    // Resume de progression, dans l'esprit du "carnet numerique" defini en Phase 4
+    const collected = collections.filter((c) => c.status === 'COLLECTE').length;
+    const missed = collections.filter((c) => c.status === 'MANQUE').length;
+    const pending = collections.filter(
+      (c) => c.status === 'A_COLLECTER',
+    ).length;
+
+    return {
+      cycle: {
+        cycleNumber: cycle.cycleNumber,
+        amountPerCollection: cycle.amountPerCollection,
+        status: cycle.status,
+      },
+      progression: {
+        total: collections.length,
+        collected,
+        missed,
+        pending,
+        amountCollected: collected * Number(cycle.amountPerCollection),
+      },
+      collections,
+    };
   }
 
-  this.checkClientAccess(cycle.client, currentUser);
+  async generatePassbookPdf(
+    cycleId: string,
+    currentUser: CurrentUser,
+  ): Promise<Buffer> {
+    const data = await this.getCycleCollections(cycleId, currentUser); // reutilise ce qu'on a deja
 
-  const collections = await this.prisma.tontineCollection.findMany({
-    where: { cycleId },
-    orderBy: { scheduledDate: 'asc' },
-  });
-
-  // Resume de progression, dans l'esprit du "carnet numerique" defini en Phase 4
-  const collected = collections.filter((c) => c.status === 'COLLECTE').length;
-  const missed = collections.filter((c) => c.status === 'MANQUE').length;
-  const pending = collections.filter((c) => c.status === 'A_COLLECTER').length;
-
-  return {
-    cycle: {
-      cycleNumber: cycle.cycleNumber,
-      amountPerCollection: cycle.amountPerCollection,
-      status: cycle.status,
-    },
-    progression: {
-      total: collections.length,
-      collected,
-      missed,
-      pending,
-      amountCollected: collected * Number(cycle.amountPerCollection),
-    },
-    collections,
-  };
-}
+    return generatePassbookPdf({
+      title: `Carnet Tontine ${data.cycle.cycleNumber}`,
+      clientName: '', // a completer si besoin, getCycleCollections ne renvoie pas le nom actuellement
+      entries: data.collections.map((c) => ({
+        label: new Date(c.scheduledDate).toLocaleDateString('fr-FR'),
+        amount: Number(data.cycle.amountPerCollection),
+        status: c.status,
+      })),
+      summary: {
+        total: data.progression.total,
+        completed: data.progression.collected,
+        pending: data.progression.pending,
+        amountDone: data.progression.amountCollected,
+      },
+    });
+  }
 }

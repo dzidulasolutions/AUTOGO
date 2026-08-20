@@ -7,6 +7,7 @@ import {
   Req,
   Get,
   Query,
+  Res,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { LoansService } from './loans.service';
@@ -17,6 +18,7 @@ import { AuditResource } from '../../common/decorators/audit-resource.decorator'
 import { LoanFiltersDto } from './dto/loan-filters.dto';
 import { OverdueSchedulerService } from './overdue-scheduler.service';
 import { RescheduleLoanDto } from './dto/reschedule-loan.dto';
+import type { Response } from 'express';
 
 @ApiTags('loans')
 @ApiBearerAuth()
@@ -58,6 +60,21 @@ export class LoansController {
   @ApiOperation({ summary: 'Voir le carnet de remboursement complet (carnet)' })
   getLoanSchedule(@Param('id') id: string, @Req() req) {
     return this.loansService.getLoanSchedule(id, req.user);
+  }
+
+  @Get(':id/passbook-pdf')
+  @ApiOperation({ summary: "Telecharger l'echeancier en PDF" })
+  async downloadPassbook(
+    @Param('id') id: string,
+    @Req() req,
+    @Res() res: Response,
+  ) {
+    const pdfBuffer = await this.loansService.generatePassbookPdf(id, req.user);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="echeancier-pret.pdf"',
+    });
+    res.send(pdfBuffer);
   }
 
   @Patch(':id/submit')
