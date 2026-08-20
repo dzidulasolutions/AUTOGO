@@ -5,8 +5,10 @@ import { TontinesService } from './tontines.service';
 import { BullModule } from '@nestjs/bullmq';
 import { MissedCollectionProcessor } from './missed-collection.processor';
 import { MissedCollectionSchedulerService } from './missed-collection-scheduler.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 @Module({
   imports: [
+    NotificationsModule,
     TransactionsModule,
     BullModule.registerQueue({ name: 'tontine-missed-check' }),
   ],

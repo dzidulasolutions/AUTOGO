@@ -9,6 +9,7 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { CreateCycleDto } from './dto/create-cycle.dto';
 import { formatCycleNumber } from './utils/cycle-number.util';
 import { generatePassbookPdf } from '../notifications/generators/passbook.generator';
+import { ResendEmailAdapter } from '../notifications/adapters/resend-email.adapter';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -17,6 +18,7 @@ export class TontinesService {
   constructor(
     private prisma: PrismaService,
     private transactionsService: TransactionsService,
+    private emailAdapter: ResendEmailAdapter,
   ) {}
 
   private isPrivileged(role: string): boolean {
@@ -193,6 +195,13 @@ export class TontinesService {
         where: { id: cycleId },
         data: { status: 'CLOSED', closedAt: new Date() },
       });
+      if (cycle.client.email) {
+        await this.emailAdapter.send(
+          cycle.client.email,
+          'Votre tontine est cloturee',
+          `<p>Bonjour ${cycle.client.firstName},</p><p>Votre cycle de tontine ${cycle.cycleNumber} est cloture. Montant restitue : ${restitutionAmount} FCFA.</p>`,
+        );
+      }
 
       return {
         transaction,

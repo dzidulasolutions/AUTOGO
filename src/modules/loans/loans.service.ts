@@ -13,7 +13,7 @@ import { LoanFiltersDto } from './dto/loan-filters.dto';
 import { TransactionsService } from '../transactions/transactions.service';
 import { RescheduleLoanDto } from './dto/reschedule-loan.dto';
 import { generatePassbookPdf } from '../notifications/generators/passbook.generator';
-
+import { ResendEmailAdapter } from '../notifications/adapters/resend-email.adapter';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -22,6 +22,7 @@ export class LoansService {
   constructor(
     private prisma: PrismaService,
     private transactionsService: TransactionsService,
+    private emailAdapter: ResendEmailAdapter,
   ) {}
 
   private isPrivileged(role: string): boolean {
@@ -94,7 +95,7 @@ export class LoansService {
   async approve(loanId: string, currentUser: CurrentUser) {
     const loan = await this.prisma.loan.findFirst({
       where: { id: loanId, status: 'PENDING_APPROVAL' },
-      include: { branch: true },
+      include: { branch: true, client: true }, // ajout de client: true, necessaire pour l'email
     });
     if (!loan) {
       throw new NotFoundException(
@@ -105,14 +106,13 @@ export class LoansService {
     const exceedsLimit =
       Number(loan.principal) > Number(loan.branch.loanApprovalLimit);
 
-    // Un Manager ne peut approuver que sous le plafond de l'agence ; au-dela, il faut Admin/SuperAdmin
     if (exceedsLimit && !this.isPrivileged(currentUser.role)) {
       throw new ForbiddenException(
         `Ce montant depasse le plafond de votre agence (${loan.branch.loanApprovalLimit} FCFA), un Admin doit approuver`,
       );
     }
 
-    return this.prisma.loan.update({
+    const updatedLoan = await this.prisma.loan.update({
       where: { id: loanId },
       data: {
         status: 'APPROVED',
@@ -120,6 +120,16 @@ export class LoansService {
         approvedAt: new Date(),
       },
     });
+
+    if (loan.client.email) {
+      await this.emailAdapter.send(
+        loan.client.email,
+        'Votre pret a ete approuve',
+        `<p>Bonjour ${loan.client.firstName},</p><p>Votre demande de pret ${loan.loanNumber} d'un montant de ${loan.principal} FCFA a ete approuvee.</p>`,
+      );
+    }
+
+    return updatedLoan;
   }
 
   async reject(loanId: string, dto: RejectLoanDto, currentUser: CurrentUser) {
@@ -572,24 +582,26 @@ export class LoansService {
     });
   }
 
+  async generatePassbookPdf(
+    loanId: string,
+    currentUser: CurrentUser,
+  ): Promise<Buffer> {
+    const data = await this.getLoanSchedule(loanId, currentUser); // reutilise ce qu'on a deja construit
 
-async generatePassbookPdf(loanId: string, currentUser: CurrentUser): Promise<Buffer> {
-  const data = await this.getLoanSchedule(loanId, currentUser); // reutilise ce qu'on a deja construit
-
-  return generatePassbookPdf({
-    title: `Echeancier Pret ${data.loan.loanNumber}`,
-    clientName: '', // getLoanSchedule ne renvoie pas le nom du client actuellement, laisse vide pour l'instant
-    entries: data.schedules.map((s) => ({
-      label: `Echeance ${s.installmentNumber} - ${new Date(s.dueDate).toLocaleDateString('fr-FR')}`,
-      amount: Number(s.amountDue),
-      status: s.status,
-    })),
-    summary: {
-      total: data.progression.total,
-      completed: data.progression.paid,
-      pending: data.progression.pending,
-      amountDone: data.progression.amountPaid,
-    },
-  });
-}
+    return generatePassbookPdf({
+      title: `Echeancier Pret ${data.loan.loanNumber}`,
+      clientName: '', // getLoanSchedule ne renvoie pas le nom du client actuellement, laisse vide pour l'instant
+      entries: data.schedules.map((s) => ({
+        label: `Echeance ${s.installmentNumber} - ${new Date(s.dueDate).toLocaleDateString('fr-FR')}`,
+        amount: Number(s.amountDue),
+        status: s.status,
+      })),
+      summary: {
+        total: data.progression.total,
+        completed: data.progression.paid,
+        pending: data.progression.pending,
+        amountDone: data.progression.amountPaid,
+      },
+    });
+  }
 }
