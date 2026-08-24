@@ -23,6 +23,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TontinesModule } from './modules/tontines/tontines.module';
 import { LoansModule } from './modules/loans/loans.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import Redis from 'ioredis';
 
 @Module({
@@ -81,6 +82,7 @@ import Redis from 'ioredis';
     TontinesModule,
     LoansModule,
     NotificationsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
