@@ -6,6 +6,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { MissedCollectionProcessor } from './missed-collection.processor';
 import { MissedCollectionSchedulerService } from './missed-collection-scheduler.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { SettingsService } from '../settings/settings.service';
+import { CacheService } from '../dashboard/cache.service';
 @Module({
   imports: [
     NotificationsModule,
@@ -17,6 +19,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
     TontinesService,
     MissedCollectionSchedulerService,
     MissedCollectionProcessor,
+    SettingsService,
+    CacheService,
   ],
 })
 export class TontinesModule {}

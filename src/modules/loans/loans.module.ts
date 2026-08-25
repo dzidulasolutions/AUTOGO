@@ -6,6 +6,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { OverdueSchedulerService } from './overdue-scheduler.service';
 import { OverdueProcessor } from './overdue.processor';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { SettingsService } from '../settings/settings.service';
+import { CacheService } from '../dashboard/cache.service';
 
 @Module({
   imports: [
@@ -14,6 +16,12 @@ import { NotificationsModule } from '../notifications/notifications.module';
     BullModule.registerQueue({ name: 'loan-overdue-check' }),
   ],
   controllers: [LoansController],
-  providers: [LoansService, OverdueSchedulerService, OverdueProcessor],
+  providers: [
+    LoansService,
+    OverdueSchedulerService,
+    OverdueProcessor,
+    SettingsService,
+    CacheService,
+  ],
 })
 export class LoansModule {}

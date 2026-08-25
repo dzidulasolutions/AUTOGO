@@ -2,14 +2,14 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
-
-const INTEREST_RATE = 0.01; // 1% mensuel, exemple simple a ajuster selon les regles reelles plus tard
+import { SettingsService } from '../settings/settings.service';
 
 @Processor('interest-calculation')
 export class InterestProcessor extends WorkerHost {
   constructor(
     private prisma: PrismaService,
     private transactionsService: TransactionsService,
+    private settingsService: SettingsService,
   ) {
     super();
   }
@@ -37,7 +37,11 @@ export class InterestProcessor extends WorkerHost {
           return;
         }
 
-        const interestAmount = Number(account.balance) * INTEREST_RATE;
+        const interestRate = await this.settingsService.get(
+          'savings.interest_rate',
+        );
+        const interestAmount = Number(account.balance) * interestRate;
+
         if (interestAmount <= 0) {
           console.log(
             `Compte ${accountId} solde nul ou negatif, pas d'interet`,

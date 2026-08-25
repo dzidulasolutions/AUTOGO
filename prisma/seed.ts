@@ -34,6 +34,7 @@ const PERMISSIONS = [
   { key: 'savings:deposit', description: 'Deposer sur un compte epargne' },
   { key: 'savings:withdraw', description: "Retirer d'un compte epargne" },
   { key: 'tontines:create', description: 'Creer un cycle de tontine' },
+  { key: 'settings:manage', description: 'Gerer les parametres systeme' },
   {
     key: 'loans:create',
     description: 'Creer et soumettre une demande de pret',
@@ -159,9 +160,15 @@ async function main() {
     },
   });
 
-  const savingsCreatePerm = permissions.find((p) => p.key === 'savings:create',)!;
-  const savingsDepositPerm = permissions.find((p) => p.key === 'savings:deposit',)!;
-  const savingsWithdrawPerm = permissions.find((p) => p.key === 'savings:withdraw',)!;
+  const savingsCreatePerm = permissions.find(
+    (p) => p.key === 'savings:create',
+  )!;
+  const savingsDepositPerm = permissions.find(
+    (p) => p.key === 'savings:deposit',
+  )!;
+  const savingsWithdrawPerm = permissions.find(
+    (p) => p.key === 'savings:withdraw',
+  )!;
 
   await Promise.all(
     [agentRole, managerRole, caissierRole].flatMap((role) =>
@@ -177,7 +184,9 @@ async function main() {
     ),
   );
 
-  const tontinesCreatePerm = permissions.find((p) => p.key === 'tontines:create',)!;
+  const tontinesCreatePerm = permissions.find(
+    (p) => p.key === 'tontines:create',
+  )!;
   await Promise.all(
     [agentRole, managerRole, caissierRole].map((role) =>
       prisma.rolePermission.upsert({
@@ -223,6 +232,24 @@ async function main() {
     },
     update: {},
     create: { roleId: managerRole.id, permissionId: loansApprovePerm.id },
+  });
+
+  await prisma.setting.upsert({
+    where: { key: 'loan.interest_rate' },
+    update: {},
+    create: { key: 'loan.interest_rate', value: 0.1 },
+  });
+
+  await prisma.setting.upsert({
+    where: { key: 'savings.interest_rate' },
+    update: {},
+    create: { key: 'savings.interest_rate', value: 0.01 },
+  });
+
+  await prisma.setting.upsert({
+    where: { key: 'tontine.default_commission_rate' },
+    update: {},
+    create: { key: 'tontine.default_commission_rate', value: 0.05 },
   });
 
   console.log('Seed termine avec succes');

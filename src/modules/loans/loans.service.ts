@@ -14,6 +14,7 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { RescheduleLoanDto } from './dto/reschedule-loan.dto';
 import { generatePassbookPdf } from '../notifications/generators/passbook.generator';
 import { ResendEmailAdapter } from '../notifications/adapters/resend-email.adapter';
+import { SettingsService } from '../settings/settings.service';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -23,6 +24,7 @@ export class LoansService {
     private prisma: PrismaService,
     private transactionsService: TransactionsService,
     private emailAdapter: ResendEmailAdapter,
+    private settingsService: SettingsService,
   ) {}
 
   private isPrivileged(role: string): boolean {
@@ -60,14 +62,14 @@ export class LoansService {
       SELECT nextval('loan_number_seq')
     `;
     const loanNumber = formatLoanNumber(Number(seqResult[0].nextval));
-
+    const interestRate = await this.settingsService.get('loan.interest_rate');
     return this.prisma.loan.create({
       data: {
         loanNumber,
         clientId: dto.clientId,
         branchId: client.branchId,
         principal: dto.principal,
-        interestRate: FIXED_INTEREST_RATE, // fige au moment de la creation, jamais recalcule apres
+        interestRate, // fige au moment de la creation, jamais recalcule apres
         durationMonths: dto.durationMonths,
         frequency: dto.frequency,
         requestedById: currentUser.id,

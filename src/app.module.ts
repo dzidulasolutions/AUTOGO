@@ -24,6 +24,7 @@ import { TontinesModule } from './modules/tontines/tontines.module';
 import { LoansModule } from './modules/loans/loans.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import Redis from 'ioredis';
 
 @Module({
@@ -83,6 +84,7 @@ import Redis from 'ioredis';
     LoansModule,
     NotificationsModule,
     DashboardModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [

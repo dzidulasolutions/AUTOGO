@@ -10,6 +10,7 @@ import { CreateCycleDto } from './dto/create-cycle.dto';
 import { formatCycleNumber } from './utils/cycle-number.util';
 import { generatePassbookPdf } from '../notifications/generators/passbook.generator';
 import { ResendEmailAdapter } from '../notifications/adapters/resend-email.adapter';
+import { SettingsService } from '../settings/settings.service';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -19,6 +20,7 @@ export class TontinesService {
     private prisma: PrismaService,
     private transactionsService: TransactionsService,
     private emailAdapter: ResendEmailAdapter,
+    private settingsService: SettingsService,
   ) {}
 
   private isPrivileged(role: string): boolean {
@@ -60,7 +62,9 @@ export class TontinesService {
       SELECT nextval('tontine_cycle_number_seq')
     `;
     const cycleNumber = formatCycleNumber(Number(seqResult[0].nextval));
-
+    const commissionRate = await this.settingsService.get(
+      'tontine.default_commission_rate',
+    );
     // Creation du cycle ET generation du calendrier dans le meme bloc atomique :
     // un cycle ne doit jamais exister sans son calendrier complet
     return this.prisma.$transaction(async (tx) => {
@@ -74,6 +78,7 @@ export class TontinesService {
           startDate,
           endDate,
           allowedWeekdays: dto.allowedWeekdays,
+          commissionRate,
         },
       });
 

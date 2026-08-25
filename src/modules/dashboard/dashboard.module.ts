@@ -10,5 +10,6 @@ import { ReportProcessor } from './processors/report.processor';
   imports: [UploadsModule, BullModule.registerQueue({ name: 'reports' })],
   controllers: [DashboardController],
   providers: [DashboardService, CacheService, ReportProcessor],
+  exports: [CacheService],
 })
 export class DashboardModule {}

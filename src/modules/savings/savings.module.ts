@@ -5,6 +5,8 @@ import { TransactionsModule } from '../transactions/transactions.module';
 import { BullModule } from '@nestjs/bullmq';
 import { InterestSchedulerService } from './interest-scheduler.service';
 import { InterestProcessor } from './interest.processor';
+import { SettingsService } from '../settings/settings.service';
+import { CacheService } from '../dashboard/cache.service';
 
 @Module({
   imports: [
@@ -14,6 +16,12 @@ import { InterestProcessor } from './interest.processor';
     }),
   ],
   controllers: [SavingsController],
-  providers: [SavingsService, InterestSchedulerService, InterestProcessor],
+  providers: [
+    SavingsService,
+    InterestSchedulerService,
+    InterestProcessor,
+    SettingsService,
+    CacheService,
+  ],
 })
 export class SavingsModule {}

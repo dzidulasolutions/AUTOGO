@@ -9,6 +9,7 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { OpenAccountDto } from './dto/open-account.dto';
 import { SavingsOperationDto } from './dto/savings-operation.dto';
 import { formatSavingsAccountNumber } from './utils/savings-number.util';
+import { SettingsService } from '../settings/settings.service';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
