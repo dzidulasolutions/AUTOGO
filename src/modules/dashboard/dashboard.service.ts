@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CacheService } from './cache.service';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
+import { Cron, CronExpression } from '@nestjs/schedule';
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
 @Injectable()
@@ -91,5 +92,32 @@ export class DashboardService {
     });
     if (!report) throw new NotFoundException('Rapport introuvable');
     return report;
+  }
+
+  // dans un nouveau service, ou directement dans DashboardService
+  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
+  async generateMonthlyReportsForAllBranches() {
+    const branches = await this.prisma.branch.findMany({
+      where: { deletedAt: null },
+    });
+    const now = new Date();
+    const previousMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+    const year =
+      now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+    for (const branch of branches) {
+      const report = await this.prisma.report.upsert({
+        where: {
+          branchId_month_year: {
+            branchId: branch.id,
+            month: previousMonth,
+            year,
+          },
+        },
+        update: {},
+        create: { branchId: branch.id, month: previousMonth, year },
+      });
+      await this.reportsQueue.add('generate-report', { reportId: report.id });
+    }
   }
 }

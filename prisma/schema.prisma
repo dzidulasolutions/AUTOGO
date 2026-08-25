@@ -467,9 +467,11 @@ model Report {
   year          Int
   status        ReportStatus @default(PENDING)
   fileUrl       String?
-  requestedById String
-  requestedBy   User         @relation(fields: [requestedById], references: [id])
+  requestedById String?
+  requestedBy   User?   @relation(fields: [requestedById], references: [id])
   createdAt     DateTime     @default(now())
+
+
 
   @@unique([branchId, month, year])
   @@map("reports")

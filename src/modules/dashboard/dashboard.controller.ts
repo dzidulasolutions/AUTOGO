@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, Param, Post,Body } from '@nestjs/common';
+import { Controller, Get, Query, Req, Param, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { RequirePermissions } from 'src/common/decorators/require-permissions.decorator';
@@ -21,6 +21,16 @@ export class DashboardController {
       dto.year,
       req.user,
     );
+  }
+
+  @Post('reports/trigger-monthly-test')
+  @RequirePermissions('loans:approve')
+  async triggerMonthlyReportsTest() {
+    await this.dashboardService.generateMonthlyReportsForAllBranches();
+    return {
+      message:
+        'Generation des rapports mensuels declenchee pour toutes les agences',
+    };
   }
 
   @Get('branch-summary')
