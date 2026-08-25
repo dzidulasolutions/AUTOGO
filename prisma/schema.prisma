@@ -90,8 +90,9 @@ model User {
   assignedClients             Client[]            @relation("AssignedClients")
   tontineCollectionsValidated TontineCollection[]
 
-  loansRequested Loan[] @relation("LoanRequestedBy")
-  loansApproved  Loan[] @relation("LoanApprovedBy")
+  loansRequested Loan[]   @relation("LoanRequestedBy")
+  loansApproved  Loan[]   @relation("LoanApprovedBy")
+  reports        Report[]
 
   @@map("users")
 }
@@ -160,8 +161,9 @@ model Branch {
   savingsAccounts SavingsAccount[]
   tontineCycles   TontineCycle[]
 
-  loanApprovalLimit Decimal @default(500000) @db.Decimal(15, 2) // plafond a partir duquel Admin doit approuver
+  loanApprovalLimit Decimal  @default(500000) @db.Decimal(15, 2) // plafond a partir duquel Admin doit approuver
   loans             Loan[]
+  reports           Report[]
 
   @@map("branches")
 }
@@ -267,11 +269,10 @@ model Transaction {
 
   savingsAccounts   SavingsAccount[]
   tontineCollection TontineCollection?
-  loanSchedules LoanSchedule[] 
+  loanSchedules     LoanSchedule[]
 
   @@index([clientId])
   @@index([branchId, createdAt])
-  
   @@map("transactions")
 }
 
@@ -412,11 +413,11 @@ model Loan {
 
   disbursedAt DateTime?
 
-  schedules LoanSchedule[]
-  allowedWeekdays Int[] @default([1, 2, 3, 4, 5]) // lundi-vendredi par defaut si non precise
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  closedAt  DateTime?
+  schedules       LoanSchedule[]
+  allowedWeekdays Int[]          @default([1, 2, 3, 4, 5]) // lundi-vendredi par defaut si non precise
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  closedAt        DateTime?
 
   @@map("loans")
 }
@@ -441,11 +442,35 @@ model LoanSchedule {
   status LoanScheduleStatus @default(PENDING)
   paidAt DateTime?
 
-  transactionId String?      
+  transactionId String?
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
 
   createdAt DateTime @default(now())
 
-  @@map("loan_schedules")
   @@unique([loanId, installmentNumber])
+  @@map("loan_schedules")
+}
+
+//reports
+
+enum ReportStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+model Report {
+  id            String       @id @default(uuid())
+  branchId      String
+  branch        Branch       @relation(fields: [branchId], references: [id])
+  month         Int
+  year          Int
+  status        ReportStatus @default(PENDING)
+  fileUrl       String?
+  requestedById String
+  requestedBy   User         @relation(fields: [requestedById], references: [id])
+  createdAt     DateTime     @default(now())
+
+  @@unique([branchId, month, year])
+  @@map("reports")
 }
