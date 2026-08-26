@@ -10,6 +10,12 @@ import { map } from 'rxjs/operators';
 @Injectable()
 export class TransformInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const request = context.switchToHttp().getRequest();
+
+    // /metrics doit rester en texte brut Prometheus, jamais enveloppe en JSON
+    if (request.url === '/metrics') {
+      return next.handle();
+    }
     return next.handle().pipe(
       map((data) => ({
         success: true,

@@ -26,4 +26,6 @@ export const envValidationSchema = Joi.object({
   CLOUD_API_SECRET: Joi.string().required(),
 
   RESEND_API_KEY: Joi.string().required(),
+
+  ALLOWED_ORIGINS: Joi.string().optional(),
 });

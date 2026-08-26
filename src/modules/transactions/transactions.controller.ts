@@ -15,6 +15,7 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 import { CancelTransactionDto } from './dto/cancel-transaction.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('transactions')
 @ApiBearerAuth()
@@ -32,6 +33,7 @@ export class TransactionsController {
   @RequirePermissions('transactions:create')
   @AuditResource('Transaction')
   @ApiOperation({ summary: 'Creer une transaction' })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   create(@Body() dto: CreateTransactionDto, @Req() req) {
     return this.transactionsService.createTransaction(dto, req.user);
   }

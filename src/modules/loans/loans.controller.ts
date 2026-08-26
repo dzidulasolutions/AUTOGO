@@ -19,6 +19,7 @@ import { LoanFiltersDto } from './dto/loan-filters.dto';
 import { OverdueSchedulerService } from './overdue-scheduler.service';
 import { RescheduleLoanDto } from './dto/reschedule-loan.dto';
 import type { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('loans')
 @ApiBearerAuth()
@@ -116,6 +117,7 @@ export class LoansController {
   @Patch(':id/repay')
   @RequirePermissions('loans:create') // meme permission que la creation, Agent/Caissier collectent les remboursements
   @AuditResource('Loan')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Enregistrer un remboursement (imputation FIFO)' })
   repay(
     @Param('id') id: string,

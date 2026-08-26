@@ -6,6 +6,7 @@ import { OpenAccountDto } from './dto/open-account.dto';
 import { SavingsOperationDto } from './dto/savings-operation.dto';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('savings')
 @ApiBearerAuth()
@@ -38,6 +39,7 @@ export class SavingsController {
 
   @Post('accounts/:id/withdraw')
   @RequirePermissions('savings:withdraw')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @AuditResource('SavingsAccount')
   @ApiOperation({ summary: "Retirer d'un compte epargne" })
   withdraw(

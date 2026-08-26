@@ -27,6 +27,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import Redis from 'ioredis';
 
+import { PrometheusModule } from '@willsoto/nestjs-prometheus';
+
 @Module({
   imports: [
     ScheduleModule.forRoot(), // active le systeme de "reveil-matin" @Cron
@@ -71,6 +73,12 @@ import Redis from 'ioredis';
         level: process.env.NODE_ENV !== 'production' ? 'debug' : 'info',
       },
     }),
+
+    // prometheus
+    PrometheusModule.register({
+      path: '/metrics',
+      defaultMetrics: { enabled: true }, // metriques systeme automatiques (memoire, CPU, event loop)
+    }),
     DatabaseModule,
     HealthModule,
     UsersModule,
@@ -86,6 +94,7 @@ import Redis from 'ioredis';
     DashboardModule,
     SettingsModule,
   ],
+
   controllers: [AppController],
   providers: [
     AppService,
