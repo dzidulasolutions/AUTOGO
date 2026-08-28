@@ -36,3 +36,7 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Deploiement sur Render
+        if: github.ref == 'refs/heads/main'
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
