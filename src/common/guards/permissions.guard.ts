@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../database/prisma.service';
 import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import { Request } from 'express';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -26,8 +27,8 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const user = request.user; // rempli par JwtStrategy.validate()
+    const request = context.switchToHttp().getRequest<Request>();
+    const user = request.user;
 
     if (!user) {
       throw new ForbiddenException('Utilisateur non authentifie');

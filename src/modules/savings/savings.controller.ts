@@ -1,5 +1,5 @@
 import { InterestSchedulerService } from './interest-scheduler.service';
-import { Controller, Post, Body, Param, Req } from '@nestjs/common';
+import { Controller, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SavingsService } from './savings.service';
 import { OpenAccountDto } from './dto/open-account.dto';
@@ -7,6 +7,8 @@ import { SavingsOperationDto } from './dto/savings-operation.dto';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
 import { Throttle } from '@nestjs/throttler';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../../types/express';
 
 @ApiTags('savings')
 @ApiBearerAuth()
@@ -21,8 +23,11 @@ export class SavingsController {
   @RequirePermissions('savings:create')
   @AuditResource('SavingsAccount')
   @ApiOperation({ summary: 'Ouvrir un compte epargne' })
-  openAccount(@Body() dto: OpenAccountDto, @Req() req) {
-    return this.savingsService.openAccount(dto, req.user);
+  openAccount(
+    @Body() dto: OpenAccountDto,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.savingsService.openAccount(dto, user);
   }
 
   @Post('accounts/:id/deposit')
@@ -32,9 +37,9 @@ export class SavingsController {
   deposit(
     @Param('id') id: string,
     @Body() dto: SavingsOperationDto,
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
   ) {
-    return this.savingsService.deposit(id, dto, req.user);
+    return this.savingsService.deposit(id, dto, user);
   }
 
   @Post('accounts/:id/withdraw')
@@ -45,9 +50,9 @@ export class SavingsController {
   withdraw(
     @Param('id') id: string,
     @Body() dto: SavingsOperationDto,
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
   ) {
-    return this.savingsService.withdraw(id, dto, req.user);
+    return this.savingsService.withdraw(id, dto, user);
   }
 
   @Post('trigger-interest-test')

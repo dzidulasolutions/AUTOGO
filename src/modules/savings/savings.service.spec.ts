@@ -41,16 +41,14 @@ describe('SavingsService', () => {
     it('devrait rejeter un retrait si le solde est insuffisant', async () => {
       mockPrisma.$transaction.mockImplementation(async (callback) => {
         const tx = {
-          $queryRaw: jest
-            .fn()
-            .mockResolvedValue([
-              {
-                id: 'acc-1',
-                balance: '1000',
-                clientId: 'client-1',
-                accountNumber: 'SAV-001',
-              },
-            ]),
+          $queryRaw: jest.fn().mockResolvedValue([
+            {
+              id: 'acc-1',
+              balance: '1000',
+              clientId: 'client-1',
+              accountNumber: 'SAV-001',
+            },
+          ]),
         };
         return callback(tx);
       });

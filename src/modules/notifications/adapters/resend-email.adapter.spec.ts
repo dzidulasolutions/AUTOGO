@@ -25,7 +25,7 @@ describe('ResendEmailAdapter', () => {
     mockSend = (adapter as any).resend.emails.send;
   });
 
-  it('ne devrait jamais lever d\'exception, meme si l\'envoi echoue', async () => {
+  it("ne devrait jamais lever d'exception, meme si l'envoi echoue", async () => {
     mockSend.mockResolvedValue({ error: { message: 'Erreur simulee Resend' } });
 
     // Le point cle : cet appel ne doit JAMAIS rejeter, peu importe l'erreur interne

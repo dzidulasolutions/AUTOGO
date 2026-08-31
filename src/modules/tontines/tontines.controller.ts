@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Res } from '@nestjs/common';
+import { Controller, Post, Body, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TontinesService } from './tontines.service';
 import { CreateCycleDto } from './dto/create-cycle.dto';
@@ -8,6 +8,8 @@ import { Patch, Param } from '@nestjs/common';
 import { MissedCollectionSchedulerService } from './missed-collection-scheduler.service';
 import { Get } from '@nestjs/common';
 import type { Response } from 'express';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../../types/express';
 
 @ApiTags('tontines')
 @ApiBearerAuth()
@@ -22,27 +24,30 @@ export class TontinesController {
   @RequirePermissions('tontines:create')
   @AuditResource('TontineCycle')
   @ApiOperation({ summary: 'Creer un cycle de tontine' })
-  createCycle(@Body() dto: CreateCycleDto, @Req() req) {
-    return this.tontinesService.createCycle(dto, req.user);
+  createCycle(
+    @Body() dto: CreateCycleDto,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.tontinesService.createCycle(dto, user);
   }
 
   @Get('cycles/:id/collections')
   @ApiOperation({ summary: "Voir le calendrier complet d'un cycle (carnet)" })
-  getCycleCollections(@Param('id') id: string, @Req() req) {
-    return this.tontinesService.getCycleCollections(id, req.user);
+  getCycleCollections(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.tontinesService.getCycleCollections(id, user);
   }
 
   @Get('cycles/:id/passbook-pdf')
   @ApiOperation({ summary: 'Telecharger le carnet en PDF' })
   async downloadPassbook(
     @Param('id') id: string,
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
     @Res() res: Response,
   ) {
-    const pdfBuffer = await this.tontinesService.generatePassbookPdf(
-      id,
-      req.user,
-    );
+    const pdfBuffer = await this.tontinesService.generatePassbookPdf(id, user);
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'attachment; filename="carnet-tontine.pdf"',
@@ -57,9 +62,9 @@ export class TontinesController {
   validateCollection(
     @Param('id') id: string,
     @Body() dto: { idempotencyKey: string },
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
   ) {
-    return this.tontinesService.validateCollection(id, dto, req.user);
+    return this.tontinesService.validateCollection(id, dto, user);
   }
 
   @Post('trigger-missed-check-test')
@@ -78,8 +83,8 @@ export class TontinesController {
   closeCycle(
     @Param('id') id: string,
     @Body() dto: { idempotencyKey: string },
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
   ) {
-    return this.tontinesService.closeCycle(id, dto, req.user);
+    return this.tontinesService.closeCycle(id, dto, user);
   }
 }

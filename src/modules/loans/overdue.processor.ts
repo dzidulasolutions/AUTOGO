@@ -32,7 +32,7 @@ export class OverdueProcessor extends WorkerHost {
         await this.emailAdapter.send(
           schedule.loan.client.email,
           'Echeance en retard',
-          `<p>Bonjour ${schedule.loan.client.firstName},</p><p>Votre echeance de ${schedule.amountDue} FCFA du pret ${schedule.loan.loanNumber} est en retard. Merci de regulariser rapidement.</p>`,
+          `<p>Bonjour ${schedule.loan.client.firstName},</p><p>Votre echeance de ${Number(schedule.amountDue)} FCFA du pret ${schedule.loan.loanNumber} est en retard. Merci de regulariser rapidement.</p>`,
         );
       }
     } catch (error) {

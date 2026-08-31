@@ -2,7 +2,6 @@ import {
   Controller,
   Post,
   Body,
-  Req,
   Get,
   Query,
   Patch,
@@ -16,7 +15,8 @@ import { AuditResource } from '../../common/decorators/audit-resource.decorator'
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 import { CancelTransactionDto } from './dto/cancel-transaction.dto';
 import { Throttle } from '@nestjs/throttler';
-
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../../types/express';
 @ApiTags('transactions')
 @ApiBearerAuth()
 @Controller('transactions')
@@ -25,8 +25,11 @@ export class TransactionsController {
 
   @Get()
   @ApiOperation({ summary: 'Lister les transactions avec filtres' })
-  findAll(@Query() filters: TransactionFiltersDto, @Req() req) {
-    return this.transactionsService.findAll(req.user, filters);
+  findAll(
+    @Query() filters: TransactionFiltersDto,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.transactionsService.findAll(user, filters);
   }
 
   @Post()
@@ -34,8 +37,11 @@ export class TransactionsController {
   @AuditResource('Transaction')
   @ApiOperation({ summary: 'Creer une transaction' })
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  create(@Body() dto: CreateTransactionDto, @Req() req) {
-    return this.transactionsService.createTransaction(dto, req.user);
+  create(
+    @Body() dto: CreateTransactionDto,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.transactionsService.createTransaction(dto, user);
   }
 
   @Patch(':id/cancel')
@@ -47,8 +53,8 @@ export class TransactionsController {
   cancel(
     @Param('id') id: string,
     @Body() dto: CancelTransactionDto,
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
   ) {
-    return this.transactionsService.cancelTransaction(id, dto, req.user);
+    return this.transactionsService.cancelTransaction(id, dto, user);
   }
 }

@@ -23,7 +23,18 @@ export class ReportProcessor extends WorkerHost {
       });
       if (!report) return;
 
-      const summaryRows = await this.prisma.$queryRaw<any[]>`
+      interface BranchSummaryRow {
+        total_deposits: number;
+        total_withdrawals: number;
+        total_disbursements: number;
+        total_repayments: number;
+      }
+      interface RiskRow {
+        loans_at_risk: number;
+        overdue_amount: number;
+      }
+
+      const summaryRows = await this.prisma.$queryRaw<BranchSummaryRow[]>`
   SELECT
     COALESCE(SUM(total_deposits), 0) AS total_deposits,
     COALESCE(SUM(total_withdrawals), 0) AS total_withdrawals,
@@ -35,7 +46,7 @@ export class ReportProcessor extends WorkerHost {
     AND EXTRACT(YEAR FROM summary_date) = ${report.year}
 `;
 
-      const riskRows = await this.prisma.$queryRaw<any[]>`
+      const riskRows = await this.prisma.$queryRaw<RiskRow[]>`
   SELECT COUNT(*) AS loans_at_risk, COALESCE(SUM(overdue_amount), 0) AS overdue_amount
   FROM v_loan_portfolio_at_risk WHERE branch_id = ${report.branchId}
 `;

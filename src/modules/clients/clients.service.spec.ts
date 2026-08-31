@@ -21,7 +21,10 @@ describe('ClientsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ClientsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ClientsService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<ClientsService>(ClientsService);
@@ -34,9 +37,14 @@ describe('ClientsService', () => {
 
     it('devrait generer un clientNumber correctement formate', async () => {
       mockPrisma.client.findFirst.mockResolvedValue(null); // pas de doublon telephone
-      mockPrisma.branch.findFirst.mockResolvedValue({ id: 'branch-a', code: 'LOM-01' });
+      mockPrisma.branch.findFirst.mockResolvedValue({
+        id: 'branch-a',
+        code: 'LOM-01',
+      });
       mockPrisma.$queryRaw.mockResolvedValue([{ nextval: BigInt(42) }]);
-      mockPrisma.client.create.mockImplementation(({ data }) => Promise.resolve(data));
+      mockPrisma.client.create.mockImplementation(({ data }) =>
+        Promise.resolve(data),
+      );
 
       const result = await service.create(dto, currentUser);
 
@@ -46,7 +54,9 @@ describe('ClientsService', () => {
     it('devrait rejeter la creation si le telephone existe deja', async () => {
       mockPrisma.client.findFirst.mockResolvedValue({ id: 'existing-client' });
 
-      await expect(service.create(dto, currentUser)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto, currentUser)).rejects.toThrow(
+        ConflictException,
+      );
 
       // La sequence ne doit JAMAIS etre appelee si le telephone est deja pris
       expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
@@ -54,9 +64,12 @@ describe('ClientsService', () => {
   });
 
   describe('findAll - isolation agence', () => {
-    it('devrait lever une exception si un role non privilegie n\'a pas d\'agence', async () => {
+    it("devrait lever une exception si un role non privilegie n'a pas d'agence", async () => {
       await expect(
-        service.findAll({ id: 'u1', role: 'Agent', branchId: null }, { page: 1, limit: 20 }),
+        service.findAll(
+          { id: 'u1', role: 'Agent', branchId: null },
+          { page: 1, limit: 20 },
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });

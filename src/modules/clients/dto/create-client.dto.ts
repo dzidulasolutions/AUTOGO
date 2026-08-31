@@ -38,7 +38,11 @@ export class CreateClientDto {
   @IsUUID()
   branchId?: string;
 
-    @ApiProperty({ required: false, description: 'Utile seulement si un Manager/Admin cree le client pour le compte d\'un agent precis' })
+  @ApiProperty({
+    required: false,
+    description:
+      "Utile seulement si un Manager/Admin cree le client pour le compte d'un agent precis",
+  })
   @IsOptional()
   @IsUUID()
   assignedAgentId?: string;

@@ -8,13 +8,13 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { RejectLoanDto } from './dto/reject-loan.dto';
 import { formatLoanNumber } from './utils/loan-number.util';
-import { FIXED_INTEREST_RATE } from './constants/loan.constants';
 import { LoanFiltersDto } from './dto/loan-filters.dto';
 import { TransactionsService } from '../transactions/transactions.service';
 import { RescheduleLoanDto } from './dto/reschedule-loan.dto';
 import { generatePassbookPdf } from '../notifications/generators/passbook.generator';
 import { ResendEmailAdapter } from '../notifications/adapters/resend-email.adapter';
 import { SettingsService } from '../settings/settings.service';
+import { TransactionTypeDto } from '../transactions/dto/create-transaction.dto';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -110,7 +110,7 @@ export class LoansService {
 
     if (exceedsLimit && !this.isPrivileged(currentUser.role)) {
       throw new ForbiddenException(
-        `Ce montant depasse le plafond de votre agence (${loan.branch.loanApprovalLimit} FCFA), un Admin doit approuver`,
+        `Ce montant depasse le plafond de votre agence (${Number(loan.branch.loanApprovalLimit)} FCFA), un Admin doit approuver`,
       );
     }
 
@@ -127,7 +127,7 @@ export class LoansService {
       await this.emailAdapter.send(
         loan.client.email,
         'Votre pret a ete approuve',
-        `<p>Bonjour ${loan.client.firstName},</p><p>Votre demande de pret ${loan.loanNumber} d'un montant de ${loan.principal} FCFA a ete approuvee.</p>`,
+        `<p>Bonjour ${loan.client.firstName},</p><p>Votre demande de pret ${loan.loanNumber} d'un montant de ${Number(loan.principal)} FCFA a ete approuvee.</p>`,
       );
     }
 
@@ -280,7 +280,7 @@ export class LoansService {
       const transaction = await this.transactionsService.createTransaction(
         {
           clientId: loan.clientId,
-          type: 'LOAN_DISBURSEMENT' as any,
+          type: TransactionTypeDto.LOAN_DISBURSEMENT,
           amount: principal,
           idempotencyKey: dto.idempotencyKey,
           description: `Decaissement pret ${loan.loanNumber}`,
@@ -357,7 +357,7 @@ export class LoansService {
     count: number,
   ): number[] {
     const baseAmount = this.roundToNearestPractical(totalToRepay / count);
-    const amounts = new Array(count - 1).fill(baseAmount);
+    const amounts: number[] = new Array(count - 1).fill(baseAmount) as number[];
 
     const sumOfFirstInstallments = baseAmount * (count - 1);
     const lastInstallment =
@@ -451,7 +451,7 @@ export class LoansService {
 
       if (schedulesToPay.length === 0) {
         throw new BadRequestException(
-          `Montant insuffisant pour couvrir la prochaine echeance (${unpaidSchedules[0].amountDue} FCFA requis)`,
+          `Montant insuffisant pour couvrir la prochaine echeance (${Number(unpaidSchedules[0].amountDue)} FCFA requis)`,
         );
       }
 
@@ -464,7 +464,7 @@ export class LoansService {
       const transaction = await this.transactionsService.createTransaction(
         {
           clientId: loan.clientId,
-          type: 'LOAN_REPAYMENT' as any,
+          type: TransactionTypeDto.LOAN_REPAYMENT,
           amount: dto.amount,
           idempotencyKey: dto.idempotencyKey,
           description: `Remboursement pret ${loan.loanNumber} (${schedulesToPay.length} echeance(s))`,

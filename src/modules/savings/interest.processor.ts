@@ -3,6 +3,7 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { SettingsService } from '../settings/settings.service';
+import { TransactionTypeDto } from '../transactions/dto/create-transaction.dto';
 
 @Processor('interest-calculation')
 export class InterestProcessor extends WorkerHost {
@@ -56,7 +57,7 @@ export class InterestProcessor extends WorkerHost {
         await this.transactionsService.createTransaction(
           {
             clientId: account.clientId,
-            type: 'DEPOSIT' as any,
+            type: TransactionTypeDto.DEPOSIT,
             amount: interestAmount,
             idempotencyKey,
             description: 'Interet mensuel',

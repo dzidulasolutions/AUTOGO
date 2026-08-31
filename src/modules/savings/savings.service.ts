@@ -9,9 +9,16 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { OpenAccountDto } from './dto/open-account.dto';
 import { SavingsOperationDto } from './dto/savings-operation.dto';
 import { formatSavingsAccountNumber } from './utils/savings-number.util';
-import { SettingsService } from '../settings/settings.service';
+import { TransactionTypeDto } from '../transactions/dto/create-transaction.dto';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
+interface SavingsAccountRow {
+  id: string;
+  accountNumber: string;
+  balance: string; // vient de SQL brut, arrive en string
+  clientId: string;
+  status: string;
+}
 
 @Injectable()
 export class SavingsService {
@@ -81,7 +88,7 @@ export class SavingsService {
       const transaction = await this.transactionsService.createTransaction(
         {
           clientId: account.clientId,
-          type: 'DEPOSIT' as any,
+          type: TransactionTypeDto.DEPOSIT,
           amount: dto.amount,
           idempotencyKey: dto.idempotencyKey,
           description: `Depot sur compte ${account.accountNumber}`,
@@ -106,11 +113,11 @@ export class SavingsService {
   ) {
     return this.prisma.$transaction(async (tx) => {
       // $queryRaw avec FOR UPDATE : verrouille la ligne jusqu'a la fin de cette transaction
-      const accounts = await tx.$queryRaw<any[]>`
-      SELECT * FROM savings_accounts
-      WHERE id = ${accountId} AND status = 'ACTIVE'
-      FOR UPDATE
-    `;
+      const accounts = await tx.$queryRaw<SavingsAccountRow[]>`
+        SELECT * FROM savings_accounts
+        WHERE id = ${accountId} AND status = 'ACTIVE'
+        FOR UPDATE
+      `;
       const account = accounts[0];
 
       if (!account) {
@@ -125,7 +132,7 @@ export class SavingsService {
       const transaction = await this.transactionsService.createTransaction(
         {
           clientId: account.clientId,
-          type: 'WITHDRAWAL' as any,
+          type: TransactionTypeDto.WITHDRAWAL,
           amount: dto.amount,
           idempotencyKey: dto.idempotencyKey,
           description: `Retrait sur compte ${account.accountNumber}`,

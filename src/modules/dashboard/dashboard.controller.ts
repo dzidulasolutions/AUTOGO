@@ -1,7 +1,9 @@
-import { Controller, Get, Query, Req, Param, Post, Body } from '@nestjs/common';
+import { Controller, Get, Query, Param, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { RequirePermissions } from 'src/common/decorators/require-permissions.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../../types/express';
 
 @ApiTags('dashboard')
 @ApiBearerAuth()
@@ -13,13 +15,13 @@ export class DashboardController {
   @RequirePermissions('loans:approve')
   requestReport(
     @Body() dto: { branchId: string; month: number; year: number },
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
   ) {
     return this.dashboardService.requestMonthlyReport(
       dto.branchId,
       dto.month,
       dto.year,
-      req.user,
+      user,
     );
   }
 
@@ -35,20 +37,23 @@ export class DashboardController {
 
   @Get('branch-summary')
   @ApiOperation({ summary: "Resume quotidien de l'agence (30 derniers jours)" })
-  getBranchSummary(@Query('branchId') branchId: string, @Req() req) {
-    return this.dashboardService.getBranchSummary(req.user, branchId);
+  getBranchSummary(
+    @Query('branchId') branchId: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.dashboardService.getBranchSummary(user, branchId);
   }
 
   @Get('portfolio-at-risk')
   @ApiOperation({ summary: 'Portefeuille de prets a risque' })
-  getPortfolioAtRisk(@Req() req) {
-    return this.dashboardService.getPortfolioAtRisk(req.user);
+  getPortfolioAtRisk(@CurrentUser() user: CurrentUserType) {
+    return this.dashboardService.getPortfolioAtRisk(user);
   }
 
   @Get('my-daily-collections')
   @ApiOperation({ summary: 'Mes collectes du jour (Agent)' })
-  getMyDailyCollections(@Req() req) {
-    return this.dashboardService.getMyDailyCollections(req.user);
+  getMyDailyCollections(@CurrentUser() user: CurrentUserType) {
+    return this.dashboardService.getMyDailyCollections(user);
   }
 
   @Get('reports/:id')

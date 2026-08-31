@@ -4,7 +4,6 @@ import {
   Patch,
   Body,
   Param,
-  Req,
   Get,
   Query,
   Res,
@@ -20,6 +19,8 @@ import { OverdueSchedulerService } from './overdue-scheduler.service';
 import { RescheduleLoanDto } from './dto/reschedule-loan.dto';
 import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../../types/express';
 
 @ApiTags('loans')
 @ApiBearerAuth()
@@ -34,8 +35,8 @@ export class LoansController {
   @RequirePermissions('loans:create')
   @AuditResource('Loan')
   @ApiOperation({ summary: 'Creer une demande de pret (brouillon)' })
-  create(@Body() dto: CreateLoanDto, @Req() req) {
-    return this.loansService.create(dto, req.user);
+  create(@Body() dto: CreateLoanDto, @CurrentUser() user: CurrentUserType) {
+    return this.loansService.create(dto, user);
   }
 
   @Post('trigger-overdue-check-test')
@@ -47,30 +48,36 @@ export class LoansController {
 
   @Get()
   @ApiOperation({ summary: 'Lister les prets (filtrable par client, statut)' })
-  findAll(@Query() filters: LoanFiltersDto, @Req() req) {
-    return this.loansService.findAll(req.user, filters);
+  findAll(
+    @Query() filters: LoanFiltersDto,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.loansService.findAll(user, filters);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Consulter un pret en detail (avec echeancier)' })
-  findOne(@Param('id') id: string, @Req() req) {
-    return this.loansService.findOne(id, req.user);
+  findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+    return this.loansService.findOne(id, user);
   }
 
   @Get(':id/schedule')
   @ApiOperation({ summary: 'Voir le carnet de remboursement complet (carnet)' })
-  getLoanSchedule(@Param('id') id: string, @Req() req) {
-    return this.loansService.getLoanSchedule(id, req.user);
+  getLoanSchedule(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.loansService.getLoanSchedule(id, user);
   }
 
   @Get(':id/passbook-pdf')
   @ApiOperation({ summary: "Telecharger l'echeancier en PDF" })
   async downloadPassbook(
     @Param('id') id: string,
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
     @Res() res: Response,
   ) {
-    const pdfBuffer = await this.loansService.generatePassbookPdf(id, req.user);
+    const pdfBuffer = await this.loansService.generatePassbookPdf(id, user);
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'attachment; filename="echeancier-pret.pdf"',
@@ -82,24 +89,28 @@ export class LoansController {
   @RequirePermissions('loans:create')
   @AuditResource('Loan')
   @ApiOperation({ summary: 'Soumettre la demande pour approbation' })
-  submit(@Param('id') id: string, @Req() req) {
-    return this.loansService.submitForApproval(id, req.user);
+  submit(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+    return this.loansService.submitForApproval(id, user);
   }
 
   @Patch(':id/approve')
   @RequirePermissions('loans:approve')
   @AuditResource('Loan')
   @ApiOperation({ summary: 'Approuver un pret' })
-  approve(@Param('id') id: string, @Req() req) {
-    return this.loansService.approve(id, req.user);
+  approve(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+    return this.loansService.approve(id, user);
   }
 
   @Patch(':id/reject')
   @RequirePermissions('loans:approve')
   @AuditResource('Loan')
   @ApiOperation({ summary: 'Rejeter un pret' })
-  reject(@Param('id') id: string, @Body() dto: RejectLoanDto, @Req() req) {
-    return this.loansService.reject(id, dto, req.user);
+  reject(
+    @Param('id') id: string,
+    @Body() dto: RejectLoanDto,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.loansService.reject(id, dto, user);
   }
 
   @Patch(':id/disburse')
@@ -109,9 +120,9 @@ export class LoansController {
   disburse(
     @Param('id') id: string,
     @Body() dto: { idempotencyKey: string },
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
   ) {
-    return this.loansService.disburse(id, dto, req.user);
+    return this.loansService.disburse(id, dto, user);
   }
 
   @Patch(':id/repay')
@@ -122,9 +133,9 @@ export class LoansController {
   repay(
     @Param('id') id: string,
     @Body() dto: { amount: number; idempotencyKey: string },
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
   ) {
-    return this.loansService.recordRepayment(id, dto, req.user);
+    return this.loansService.recordRepayment(id, dto, user);
   }
 
   @Patch(':id/reschedule')
@@ -134,8 +145,8 @@ export class LoansController {
   reschedule(
     @Param('id') id: string,
     @Body() dto: RescheduleLoanDto,
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
   ) {
-    return this.loansService.reschedule(id, dto, req.user);
+    return this.loansService.reschedule(id, dto, user);
   }
 }

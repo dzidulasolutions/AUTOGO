@@ -29,10 +29,18 @@ describe('Isolation clients entre agences (e2e)', () => {
     prisma = moduleFixture.get<PrismaService>(PrismaService);
 
     branchA = await prisma.branch.create({
-      data: { name: `Agence Test A ${suffix}`, code: `TSTA-${suffix}`, city: 'Lome' },
+      data: {
+        name: `Agence Test A ${suffix}`,
+        code: `TSTA-${suffix}`,
+        city: 'Lome',
+      },
     });
     branchB = await prisma.branch.create({
-      data: { name: `Agence Test B ${suffix}`, code: `TSTB-${suffix}`, city: 'Kara' },
+      data: {
+        name: `Agence Test B ${suffix}`,
+        code: `TSTB-${suffix}`,
+        city: 'Kara',
+      },
     });
 
     const agentRole = await prisma.role.findFirst({ where: { name: 'Agent' } });
@@ -50,7 +58,9 @@ describe('Isolation clients entre agences (e2e)', () => {
     });
 
     // Cree directement un client dans l'agence B via Prisma (pas besoin de passer par l'API pour ce setup)
-    const seqResult = await prisma.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('client_number_seq')`;
+    const seqResult = await prisma.$queryRaw<
+      { nextval: bigint }[]
+    >`SELECT nextval('client_number_seq')`;
     clientInBranchB = await prisma.client.create({
       data: {
         clientNumber: `${branchB.code}-${String(seqResult[0].nextval).padStart(6, '0')}`,
@@ -70,12 +80,16 @@ describe('Isolation clients entre agences (e2e)', () => {
 
   afterAll(async () => {
     await prisma.client.deleteMany({ where: { id: clientInBranchB.id } });
-    await prisma.user.deleteMany({ where: { email: { contains: `${suffix}@autogo.tg` } } });
-    await prisma.branch.deleteMany({ where: { id: { in: [branchA.id, branchB.id] } } });
+    await prisma.user.deleteMany({
+      where: { email: { contains: `${suffix}@autogo.tg` } },
+    });
+    await prisma.branch.deleteMany({
+      where: { id: { in: [branchA.id, branchB.id] } },
+    });
     await app.close();
   });
 
-  it('un Agent ne devrait PAS voir un client d\'une autre agence dans la liste', async () => {
+  it("un Agent ne devrait PAS voir un client d'une autre agence dans la liste", async () => {
     const response = await request(app.getHttpServer())
       .get('/clients')
       .set('Authorization', `Bearer ${agentAToken}`);
@@ -85,7 +99,7 @@ describe('Isolation clients entre agences (e2e)', () => {
     expect(ids).not.toContain(clientInBranchB.id);
   });
 
-  it('un Agent devrait recevoir 404 en consultant directement un client d\'une autre agence', async () => {
+  it("un Agent devrait recevoir 404 en consultant directement un client d'une autre agence", async () => {
     const response = await request(app.getHttpServer())
       .get(`/clients/${clientInBranchB.id}`)
       .set('Authorization', `Bearer ${agentAToken}`);
@@ -93,7 +107,7 @@ describe('Isolation clients entre agences (e2e)', () => {
     expect(response.status).toBe(404);
   });
 
-  it('la recherche ne devrait pas retourner un client d\'une autre agence', async () => {
+  it("la recherche ne devrait pas retourner un client d'une autre agence", async () => {
     const response = await request(app.getHttpServer())
       .get(`/clients/search?q=DansAgenceB`)
       .set('Authorization', `Bearer ${agentAToken}`);

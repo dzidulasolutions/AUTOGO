@@ -8,8 +8,11 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as argon2 from 'argon2';
+import { User } from 'generated/prisma/client';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
+type SafeUser = Omit<User, 'password'>;
 
 @Injectable()
 export class UsersService {
@@ -27,7 +30,7 @@ export class UsersService {
     }
   }
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto): Promise<SafeUser> {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -44,14 +47,14 @@ export class UsersService {
         firstName: dto.firstName,
         lastName: dto.lastName,
         roleId: dto.roleId,
-         branchId: dto.branchId
+        branchId: dto.branchId,
       },
     });
 
     return this.excludePassword(user);
   }
 
-  async findAll(currentUser: CurrentUser) {
+  async findAll(currentUser: CurrentUser): Promise<SafeUser[]> {
     this.ensureHasBranchOrPrivileged(currentUser);
     const privileged = this.isPrivileged(currentUser.role);
 
@@ -66,7 +69,7 @@ export class UsersService {
     return users.map((u) => this.excludePassword(u));
   }
 
-  async findOne(id: string, currentUser: CurrentUser) {
+  async findOne(id: string, currentUser: CurrentUser): Promise<SafeUser> {
     this.ensureHasBranchOrPrivileged(currentUser);
     const privileged = this.isPrivileged(currentUser.role);
 
@@ -85,7 +88,11 @@ export class UsersService {
     return this.excludePassword(user);
   }
 
-  async update(id: string, dto: UpdateUserDto, currentUser: CurrentUser) {
+  async update(
+    id: string,
+    dto: UpdateUserDto,
+    currentUser: CurrentUser,
+  ): Promise<SafeUser> {
     // findOne applique deja le scoping : si l'utilisateur cible n'est pas dans le perimetre, il leve 404 ici
     await this.findOne(id, currentUser);
 
@@ -117,8 +124,8 @@ export class UsersService {
     return this.excludePassword(user);
   }
 
-  async updateProfile(userId: string, dto: any) {
-    const data: any = { ...dto };
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const data: Record<string, unknown> = { ...dto };
     if (dto.birthDate) {
       data.birthDate = new Date(dto.birthDate);
     }
@@ -130,7 +137,10 @@ export class UsersService {
     });
   }
 
-  async updateContact(userId: string, dto: { email?: string; phone?: string }) {
+  async updateContact(
+    userId: string,
+    dto: { email?: string; phone?: string },
+  ): Promise<SafeUser> {
     if (dto.email) {
       const existing = await this.prisma.user.findFirst({
         where: { email: dto.email, id: { not: userId } },
@@ -157,7 +167,8 @@ export class UsersService {
     return this.prisma.role.findMany();
   }
 
-  private excludePassword(user: any) {
+  private excludePassword(user: User): SafeUser {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...rest } = user;
     return rest;
   }

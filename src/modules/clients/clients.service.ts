@@ -13,6 +13,15 @@ import { Prisma } from '../../../generated/prisma/client';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
+interface ClientSearchResult {
+  id: string;
+  clientNumber: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  relevance: number;
+}
+
 @Injectable()
 export class ClientsService {
   constructor(private prisma: PrismaService) {}
@@ -161,7 +170,10 @@ export class ClientsService {
     return Boolean(client.photoUrl && client.idDocumentUrl);
   }
 
-  async search(query: string, currentUser: CurrentUser) {
+  async search(
+    query: string,
+    currentUser: CurrentUser,
+  ): Promise<ClientSearchResult[]> {
     this.ensureHasBranchOrPrivileged(currentUser);
     const privileged = this.isPrivileged(currentUser.role);
 
@@ -170,7 +182,7 @@ export class ClientsService {
       ? Prisma.empty
       : Prisma.sql`AND "branchId" = ${currentUser.branchId}`;
 
-    const results = await this.prisma.$queryRaw<any[]>`
+    const results = await this.prisma.$queryRaw<ClientSearchResult[]>`
     SELECT *,
       GREATEST(
         similarity("firstName", ${query}),

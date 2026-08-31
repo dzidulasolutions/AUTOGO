@@ -17,7 +17,10 @@ describe('UsersService - scoping par agence', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UsersService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        UsersService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
@@ -28,7 +31,11 @@ describe('UsersService - scoping par agence', () => {
     it('devrait filtrer par branchId pour un Manager', async () => {
       mockPrisma.user.findMany.mockResolvedValue([]);
 
-      await service.findAll({ id: 'user-1', role: 'Manager', branchId: 'branch-a' });
+      await service.findAll({
+        id: 'user-1',
+        role: 'Manager',
+        branchId: 'branch-a',
+      });
 
       expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
         where: { deletedAt: null, branchId: 'branch-a' },
@@ -39,7 +46,11 @@ describe('UsersService - scoping par agence', () => {
     it('ne devrait PAS filtrer par branchId pour un SuperAdmin', async () => {
       mockPrisma.user.findMany.mockResolvedValue([]);
 
-      await service.findAll({ id: 'user-1', role: 'SuperAdmin', branchId: null });
+      await service.findAll({
+        id: 'user-1',
+        role: 'SuperAdmin',
+        branchId: null,
+      });
 
       expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
         where: { deletedAt: null },
@@ -47,7 +58,7 @@ describe('UsersService - scoping par agence', () => {
       });
     });
 
-    it('devrait lever une exception si un Manager n\'a pas d\'agence assignee', async () => {
+    it("devrait lever une exception si un Manager n'a pas d'agence assignee", async () => {
       await expect(
         service.findAll({ id: 'user-1', role: 'Manager', branchId: null }),
       ).rejects.toThrow(ForbiddenException);
@@ -55,12 +66,16 @@ describe('UsersService - scoping par agence', () => {
   });
 
   describe('findOne - isolation entre agences', () => {
-    it('devrait renvoyer 404 si l\'utilisateur cible appartient a une autre agence', async () => {
+    it("devrait renvoyer 404 si l'utilisateur cible appartient a une autre agence", async () => {
       // Simule Prisma qui ne trouve rien, car le where inclut branchId different
       mockPrisma.user.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.findOne('user-cible', { id: 'user-1', role: 'Manager', branchId: 'branch-a' }),
+        service.findOne('user-cible', {
+          id: 'user-1',
+          role: 'Manager',
+          branchId: 'branch-a',
+        }),
       ).rejects.toThrow(NotFoundException);
 
       // Verifie que le filtre d'agence a bien ete applique dans la requete

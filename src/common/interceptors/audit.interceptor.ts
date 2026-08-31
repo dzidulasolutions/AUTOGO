@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { Request } from 'express';
 import { PrismaService } from '../../database/prisma.service';
 import { Reflector } from '@nestjs/core';
 import { AUDIT_RESOURCE_KEY } from '../decorators/audit-resource.decorator';
@@ -17,27 +18,26 @@ export class AuditInterceptor implements NestInterceptor {
     private reflector: Reflector,
   ) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const resource = this.reflector.getAllAndOverride<string>(
       AUDIT_RESOURCE_KEY,
       [context.getHandler(), context.getClass()],
     );
 
-    // Pas de decorateur @AuditResource() sur cette route -> pas d'audit
     if (!resource) {
       return next.handle();
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
+    const user = request.user;
     const method = request.method;
 
-    // On n'audite que les actions qui modifient des donnees
     if (!['POST', 'PATCH', 'DELETE'].includes(method)) {
       return next.handle();
     }
 
     return next.handle().pipe(
-      tap((response) => {
+      tap((response: { id?: string } | undefined) => {
         const action =
           method === 'POST'
             ? 'CREATE'
@@ -45,14 +45,13 @@ export class AuditInterceptor implements NestInterceptor {
               ? 'DELETE'
               : 'UPDATE';
 
-        const resourceId = response?.id ?? request.params?.id ?? null;
+        const params = request.params as Record<string, string>;
+        const resourceId = response?.id ?? params?.id ?? null;
 
-        // Ecriture "fire and forget" : ne bloque jamais la reponse HTTP,
-        // et une erreur d'audit ne doit jamais faire echouer l'action metier elle-meme
         this.prisma.auditLog
           .create({
             data: {
-              userId: request.user?.id ?? null,
+              userId: user?.id ?? null,
               action,
               resource,
               resourceId,
@@ -62,7 +61,7 @@ export class AuditInterceptor implements NestInterceptor {
               ipAddress: request.ip,
             },
           })
-          .catch((err) => {
+          .catch((err: unknown) => {
             console.error('Erreur ecriture audit log', err);
           });
       }),

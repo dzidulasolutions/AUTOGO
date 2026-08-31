@@ -4,7 +4,6 @@ import {
   Body,
   HttpCode,
   HttpStatus,
-  Req,
   Ip,
   Headers,
   Get,
@@ -19,6 +18,8 @@ import { Public } from '../../common/decorators/public.decorator';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { Throttle } from '@nestjs/throttler';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../../types/express';
 
 @ApiTags('auth')
 @ApiBearerAuth()
@@ -46,20 +47,26 @@ export class AuthController {
 
   @Post('mfa/setup')
   @ApiOperation({ summary: 'Generer le QR code MFA' })
-  setupMfa(@Req() req) {
-    return this.authService.generateMfaSecret(req.user.id);
+  setupMfa(@CurrentUser() user: CurrentUserType) {
+    return this.authService.generateMfaSecret(user.id);
   }
 
   @Post('mfa/enable')
   @ApiOperation({ summary: 'Activer le MFA apres verification du code' })
-  enableMfa(@Req() req, @Body() dto: { code: string }) {
-    return this.authService.enableMfa(req.user.id, dto.code);
+  enableMfa(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: { code: string },
+  ) {
+    return this.authService.enableMfa(user.id, dto.code);
   }
 
   @Post('mfa/disable')
   @ApiOperation({ summary: 'Desactiver le MFA' })
-  disableMfa(@Req() req, @Body() dto: { code: string }) {
-    return this.authService.disableMfa(req.user.id, dto.code);
+  disableMfa(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: { code: string },
+  ) {
+    return this.authService.disableMfa(user.id, dto.code);
   }
 
   @Public()
@@ -87,26 +94,32 @@ export class AuthController {
 
   @Post('send-verification')
   @ApiOperation({ summary: 'Envoyer un code de verification email' })
-  sendVerification(@Req() req) {
-    return this.authService.sendEmailVerification(req.user.id);
+  sendVerification(@CurrentUser() user: CurrentUserType) {
+    return this.authService.sendEmailVerification(user.id);
   }
 
   @Post('verify-email')
   @ApiOperation({ summary: "Verifier l'email avec le code recu" })
-  verifyEmail(@Req() req, @Body() dto: { code: string }) {
-    return this.authService.verifyEmail(req.user.id, dto.code);
+  verifyEmail(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: { code: string },
+  ) {
+    return this.authService.verifyEmail(user.id, dto.code);
   }
 
   @Post('send-phone-verification')
   @ApiOperation({ summary: 'Envoyer un code de verification par telephone' })
-  sendPhoneVerification(@Req() req) {
-    return this.authService.sendPhoneVerification(req.user.id);
+  sendPhoneVerification(@CurrentUser() user: CurrentUserType) {
+    return this.authService.sendPhoneVerification(user.id);
   }
 
   @Post('verify-phone')
   @ApiOperation({ summary: 'Verifier le telephone avec le code recu' })
-  verifyPhone(@Req() req, @Body() dto: { code: string }) {
-    return this.authService.verifyPhone(req.user.id, dto.code);
+  verifyPhone(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: { code: string },
+  ) {
+    return this.authService.verifyPhone(user.id, dto.code);
   }
 
   @Public()
@@ -127,24 +140,27 @@ export class AuthController {
 
   @Get('sessions')
   @ApiOperation({ summary: 'Lister mes sessions actives' })
-  getSessions(@Req() req) {
-    return this.authService.getSessions(req.user.id);
+  getSessions(@CurrentUser() user: CurrentUserType) {
+    return this.authService.getSessions(user.id);
   }
 
   @Delete('sessions/:id')
   @ApiOperation({ summary: 'Revoquer une session precise' })
-  revokeSession(@Req() req, @Param('id') sessionId: string) {
-    return this.authService.revokeSession(req.user.id, sessionId);
+  revokeSession(
+    @CurrentUser() user: CurrentUserType,
+    @Param('id') sessionId: string,
+  ) {
+    return this.authService.revokeSession(user.id, sessionId);
   }
 
   @Delete('sessions')
   @ApiOperation({ summary: 'Revoquer toutes les sessions sauf celle en cours' })
   revokeAllOtherSessions(
-    @Req() req,
+    @CurrentUser() user: CurrentUserType,
     @Body() dto: { currentSessionId: string },
   ) {
     return this.authService.revokeAllOtherSessions(
-      req.user.id,
+      user.id,
       dto.currentSessionId,
     );
   }

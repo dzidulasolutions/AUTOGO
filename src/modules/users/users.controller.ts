@@ -12,11 +12,11 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
-import { Req } from '@nestjs/common';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
-
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../../types/express';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -33,49 +33,59 @@ export class UsersController {
 
   @Get()
   @ApiOperation({ summary: 'Lister les utilisateurs' })
-  findAll(@Req() req) {
-    return this.usersService.findAll(req.user);
+  findAll(@CurrentUser() user: CurrentUserType) {
+    return this.usersService.findAll(user);
   }
 
   @Get('me')
   @ApiOperation({ summary: 'Consulter mon propre profil' })
-  getMyProfile(@Req() req) {
-    return this.usersService.getProfile(req.user.id);
+  getMyProfile(@CurrentUser() user: CurrentUserType) {
+    return this.usersService.getProfile(user.id);
   }
 
   @Patch('me/profile')
   @ApiOperation({
     summary: 'Modifier mon profil (adresse, ville, date de naissance)',
   })
-  updateMyProfile(@Req() req, @Body() dto: UpdateProfileDto) {
-    return this.usersService.updateProfile(req.user.id, dto);
+  updateMyProfile(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.usersService.updateProfile(user.id, dto);
   }
 
   @Patch('me/contact')
   @ApiOperation({ summary: 'Modifier mon email ou telephone' })
-  updateMyContact(@Req() req, @Body() dto: UpdateContactDto) {
-    return this.usersService.updateContact(req.user.id, dto);
+  updateMyContact(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: UpdateContactDto,
+  ) {
+    return this.usersService.updateContact(user.id, dto);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Consulter un utilisateur' })
-  findOne(@Param('id') id: string, @Req() req) {
-    return this.usersService.findOne(id, req.user);
+  findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+    return this.usersService.findOne(id, user);
   }
 
   @Patch(':id')
   @RequirePermissions('users:update')
   @AuditResource('User')
   @ApiOperation({ summary: 'Modifier un utilisateur' })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() req) {
-    return this.usersService.update(id, dto, req.user);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.usersService.update(id, dto, user);
   }
 
   @Delete(':id')
   @RequirePermissions('users:delete')
   @AuditResource('User')
   @ApiOperation({ summary: 'Desactiver un utilisateur (soft delete)' })
-  remove(@Param('id') id: string, @Req() req) {
-    return this.usersService.remove(id, req.user);
+  remove(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+    return this.usersService.remove(id, user);
   }
 }

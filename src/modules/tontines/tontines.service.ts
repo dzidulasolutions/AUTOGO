@@ -11,6 +11,7 @@ import { formatCycleNumber } from './utils/cycle-number.util';
 import { generatePassbookPdf } from '../notifications/generators/passbook.generator';
 import { ResendEmailAdapter } from '../notifications/adapters/resend-email.adapter';
 import { SettingsService } from '../settings/settings.service';
+import { TransactionTypeDto } from '../transactions/dto/create-transaction.dto';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -127,7 +128,7 @@ export class TontinesService {
       const transaction = await this.transactionsService.createTransaction(
         {
           clientId: collection.cycle.clientId,
-          type: 'TONTINE_COLLECTION' as any,
+          type: TransactionTypeDto.TONTINE_COLLECTION,
           amount: Number(collection.cycle.amountPerCollection),
           idempotencyKey: dto.idempotencyKey,
           description: `Collecte tontine ${collection.cycle.cycleNumber} - echeance du ${collection.scheduledDate.toISOString().slice(0, 10)}`,
@@ -187,7 +188,7 @@ export class TontinesService {
       const transaction = await this.transactionsService.createTransaction(
         {
           clientId: cycle.clientId,
-          type: 'TONTINE_PAYOUT' as any,
+          type: TransactionTypeDto.TONTINE_PAYOUT,
           amount: restitutionAmount,
           idempotencyKey: dto.idempotencyKey,
           description: `Restitution cycle ${cycle.cycleNumber} (${collectedSum._count.id} collectes, commission ${(Number(cycle.commissionRate) * 100).toFixed(0)}%)`,
