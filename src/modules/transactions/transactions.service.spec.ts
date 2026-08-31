@@ -28,6 +28,7 @@ describe('TransactionsService', () => {
       providers: [
         TransactionsService,
         { provide: PrismaService, useValue: mockPrisma },
+         { provide: 'BullQueue_pdf', useValue: { add: jest.fn() } },
       ],
     }).compile();
 

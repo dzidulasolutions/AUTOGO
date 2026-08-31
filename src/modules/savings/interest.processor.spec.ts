@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { InterestProcessor } from './interest.processor';
 import { PrismaService } from '../../database/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { SettingsService } from '../settings/settings.service';
 
 describe('InterestProcessor', () => {
   let processor: InterestProcessor;
@@ -23,6 +24,7 @@ describe('InterestProcessor', () => {
         InterestProcessor,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TransactionsService, useValue: mockTransactionsService },
+        { provide: SettingsService, useValue: { get: jest.fn().mockResolvedValue(0.01) },},
       ],
     }).compile();
 

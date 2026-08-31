@@ -1,7 +1,7 @@
 import { Controller, Get, Query, Param, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
-import { RequirePermissions } from 'src/common/decorators/require-permissions.decorator';
+import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../types/express';
 

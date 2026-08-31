@@ -3,6 +3,8 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { LoansService } from './loans.service';
 import { PrismaService } from '../../database/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { ResendEmailAdapter } from '../notifications/adapters/resend-email.adapter';
+import { SettingsService } from '../settings/settings.service';
 
 describe('LoansService', () => {
   let service: LoansService;
@@ -26,6 +28,8 @@ describe('LoansService', () => {
         LoansService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TransactionsService, useValue: mockTransactionsService },
+        { provide: SettingsService, useValue: { get: jest.fn().mockResolvedValue(0.1) },},
+        { provide: ResendEmailAdapter, useValue: { send: jest.fn() } },
       ],
     }).compile();
 

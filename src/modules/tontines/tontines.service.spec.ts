@@ -3,6 +3,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { TontinesService } from './tontines.service';
 import { PrismaService } from '../../database/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { ResendEmailAdapter } from '../notifications/adapters/resend-email.adapter';
+import { SettingsService } from '../settings/settings.service';
 
 describe('TontinesService', () => {
   let service: TontinesService;
@@ -25,6 +27,8 @@ describe('TontinesService', () => {
         TontinesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TransactionsService, useValue: mockTransactionsService },
+        { provide: SettingsService, useValue: { get: jest.fn().mockResolvedValue(0.05) },},
+        { provide: ResendEmailAdapter, useValue: { send: jest.fn() } },
       ],
     }).compile();
 
