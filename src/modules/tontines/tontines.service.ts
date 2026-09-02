@@ -63,7 +63,7 @@ export class TontinesService {
       SELECT nextval('tontine_cycle_number_seq')
     `;
     const cycleNumber = formatCycleNumber(Number(seqResult[0].nextval));
-    const commissionRate = await this.settingsService.get(
+    const commissionRate = await this.settingsService.get<number>(
       'tontine.default_commission_rate',
     );
     // Creation du cycle ET generation du calendrier dans le meme bloc atomique :

@@ -62,7 +62,8 @@ export class LoansService {
       SELECT nextval('loan_number_seq')
     `;
     const loanNumber = formatLoanNumber(Number(seqResult[0].nextval));
-    const interestRate = await this.settingsService.get('loan.interest_rate');
+    const interestRate =
+      await this.settingsService.get<number>('loan.interest_rate');
     return this.prisma.loan.create({
       data: {
         loanNumber,

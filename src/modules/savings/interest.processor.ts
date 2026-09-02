@@ -38,7 +38,7 @@ export class InterestProcessor extends WorkerHost {
           return;
         }
 
-        const interestRate = await this.settingsService.get(
+        const interestRate = await this.settingsService.get<number>(
           'savings.interest_rate',
         );
         const interestAmount = Number(account.balance) * interestRate;

@@ -13,7 +13,7 @@ import { Prisma } from '../../../generated/prisma/client';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
-interface ClientSearchResult {
+export interface ClientSearchResult {
   id: string;
   clientNumber: string;
   firstName: string;
