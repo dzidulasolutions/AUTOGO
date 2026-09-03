@@ -28,6 +28,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import Redis from 'ioredis';
 
 import { PrometheusModule } from '@willsoto/nestjs-prometheus';
+import { ClientPortalModule } from './modules/client-portal/client-portal.module';
 
 @Module({
   imports: [
@@ -93,6 +94,7 @@ import { PrometheusModule } from '@willsoto/nestjs-prometheus';
     NotificationsModule,
     DashboardModule,
     SettingsModule,
+    ClientPortalModule,
   ],
 
   controllers: [AppController],

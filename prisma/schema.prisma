@@ -90,10 +90,10 @@ model User {
   assignedClients             Client[]            @relation("AssignedClients")
   tontineCollectionsValidated TontineCollection[]
 
-  loansRequested Loan[]   @relation("LoanRequestedBy")
-  loansApproved  Loan[]   @relation("LoanApprovedBy")
+  loansRequested Loan[]    @relation("LoanRequestedBy")
+  loansApproved  Loan[]    @relation("LoanApprovedBy")
   reports        Report[]
-  settings        Setting[]
+  settings       Setting[]
 
   @@map("users")
 }
@@ -214,6 +214,11 @@ model Client {
 
   transactions    Transaction[]
   savingsAccounts SavingsAccount[]
+
+  password String? // null tant que le compte n'est pas active
+
+  resetPasswordToken     String?
+  resetPasswordExpiresAt DateTime?
 
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -469,19 +474,20 @@ model Report {
   status        ReportStatus @default(PENDING)
   fileUrl       String?
   requestedById String?
-  requestedBy   User?   @relation(fields: [requestedById], references: [id])
+  requestedBy   User?        @relation(fields: [requestedById], references: [id])
   createdAt     DateTime     @default(now())
+
   @@unique([branchId, month, year])
   @@map("reports")
 }
 
 model Setting {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     Json
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  updatedAt   DateTime @updatedAt
   updatedById String?
-  updatedBy   User?  @relation(fields: [updatedById], references: [id])
+  updatedBy   User?    @relation(fields: [updatedById], references: [id])
 
   @@map("settings")
 }
