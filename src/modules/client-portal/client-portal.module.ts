@@ -3,7 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClientAuthController } from './auth/auth.controller';
 import { ClientAuthService } from './auth/auth.service';
-
+import { PortalController } from './portal.controller';
 @Module({
   imports: [
     JwtModule.registerAsync({
@@ -14,7 +14,7 @@ import { ClientAuthService } from './auth/auth.service';
       }),
     }),
   ],
-  controllers: [ClientAuthController],
+  controllers: [ClientAuthController, PortalController],
   providers: [ClientAuthService],
 })
 export class ClientPortalModule {}
