@@ -149,14 +149,28 @@ export class SavingsService {
       return { transaction, account: updatedAccount };
     });
   }
-  @Get('accounts/by-client/:clientId')
-@RequirePermissions('savings:create')
-@AuditResource('SavingsAccount')
-@ApiOperation({ summary: 'Récupérer le compte épargne d’un client' })
-findByClient(
-  @Param('clientId') clientId: string,
-  @CurrentUser() user: CurrentUserType,
-) {
-  return this.savingsService.findByClient(clientId, user);
+  async findByClient(clientId: string, currentUser: CurrentUserType) {
+  const client = await this.prisma.client.findFirst({
+    where: { id: clientId, deletedAt: null },
+  });
+  if (!client) {
+    throw new NotFoundException('Client introuvable');
+  }
+
+  if (!this.isPrivileged(currentUser.role) && client.branchId !== currentUser.branchId) {
+    throw new ForbiddenException(
+      "Vous ne pouvez pas consulter le compte d'un client d'une autre agence",
+    );
+  }
+
+  const account = await this.prisma.savingsAccount.findFirst({
+    where: { clientId },
+  });
+
+  if (!account) {
+    throw new NotFoundException('Aucun compte épargne pour ce client');
+  }
+
+  return account;
 }
 }
