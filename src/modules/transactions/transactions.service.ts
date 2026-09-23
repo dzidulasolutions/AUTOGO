@@ -89,11 +89,11 @@ export class TransactionsService {
     });
 
     // 2. Puis on declenche la generation du recu, une fois qu'on a bien son id
-    await this.pdfQueue.add('generate-receipt', {
-      transactionId: transaction.id,
-    });
+this.pdfQueue
+  .add('generate-receipt', { transactionId: transaction.id })
+  .catch((err) => console.error('Échec ajout à la queue PDF', err.message));
 
-    return transaction;
+return transaction;
   }
 
   async findAll(currentUser: CurrentUser, filters: TransactionFiltersDto) {
