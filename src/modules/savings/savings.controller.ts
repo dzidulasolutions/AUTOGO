@@ -1,5 +1,5 @@
 import { InterestSchedulerService } from './interest-scheduler.service';
-import { Controller, Post, Body, Param } from '@nestjs/common';
+import { Controller, Post, Body, Param, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SavingsService } from './savings.service';
 import { OpenAccountDto } from './dto/open-account.dto';
@@ -29,6 +29,17 @@ export class SavingsController {
   ) {
     return this.savingsService.openAccount(dto, user);
   }
+
+  @Get('accounts/by-client/:clientId')
+@RequirePermissions('savings:create')
+@AuditResource('SavingsAccount')
+@ApiOperation({ summary: 'Récupérer le compte épargne d’un client' })
+findByClient(
+  @Param('clientId') clientId: string,
+  @CurrentUser() user: CurrentUserType,
+) {
+  return this.savingsService.findByClient(clientId, user);
+}
 
   @Post('accounts/:id/deposit')
   @RequirePermissions('savings:deposit')
