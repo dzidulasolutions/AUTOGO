@@ -39,9 +39,11 @@ import { ClientPortalModule } from './modules/client-portal/client-portal.module
       useFactory: (config: ConfigService) => {
         const redisUrl = config.get<string>('REDIS_URL')!;
         const connection = new Redis(redisUrl, {
-          maxRetriesPerRequest: null,
-          enableReadyCheck: false,
-        });
+  maxRetriesPerRequest: 3,       // abandonne après 3 tentatives plutôt que jamais
+  enableReadyCheck: false,
+  connectTimeout: 5000,          // 5 secondes pour établir la connexion
+  retryStrategy: (times) => Math.min(times * 200, 2000), // délai croissant, plafonné
+});
 
         connection.on('error', (err) => {
           console.error('Erreur connexion Redis (BullMQ)', err.message);
