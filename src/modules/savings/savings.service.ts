@@ -149,7 +149,7 @@ export class SavingsService {
       return { transaction, account: updatedAccount };
     });
   }
-  async findByClient(clientId: string, currentUser: CurrentUserType) {
+  async findByClient(clientId: string, currentUser: CurrentUser) {
   const client = await this.prisma.client.findFirst({
     where: { id: clientId, deletedAt: null },
   });
