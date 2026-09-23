@@ -149,4 +149,14 @@ export class SavingsService {
       return { transaction, account: updatedAccount };
     });
   }
+  @Get('accounts/by-client/:clientId')
+@RequirePermissions('savings:create')
+@AuditResource('SavingsAccount')
+@ApiOperation({ summary: 'Récupérer le compte épargne d’un client' })
+findByClient(
+  @Param('clientId') clientId: string,
+  @CurrentUser() user: CurrentUserType,
+) {
+  return this.savingsService.findByClient(clientId, user);
+}
 }
