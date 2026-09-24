@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res } from '@nestjs/common';
+import { Controller, Post, Body, Res, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TontinesService } from './tontines.service';
 import { CreateCycleDto } from './dto/create-cycle.dto';
@@ -30,6 +30,17 @@ export class TontinesController {
   ) {
     return this.tontinesService.createCycle(dto, user);
   }
+
+  @Get('cycles/by-client/:clientId')
+@RequirePermissions('tontines:create')
+@AuditResource('TontineCycle')
+@ApiOperation({ summary: 'Récupérer les cycles de tontine d’un client' })
+findByClient(
+  @Param('clientId') clientId: string,
+  @CurrentUser() user: CurrentUser,
+) {
+  return this.tontinesService.findByClient(clientId, user);
+}
 
   @Get('cycles/:id/collections')
   @ApiOperation({ summary: "Voir le calendrier complet d'un cycle (carnet)" })
