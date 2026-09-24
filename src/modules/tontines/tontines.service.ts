@@ -282,4 +282,25 @@ export class TontinesService {
       },
     });
   }
+
+  async findByClient(clientId: string, currentUser: CurrentUser) {
+  const client = await this.prisma.client.findFirst({
+    where: { id: clientId, deletedAt: null },
+  });
+  if (!client) {
+    throw new NotFoundException('Client introuvable');
+  }
+
+  if (!this.isPrivileged(currentUser.role) && client.branchId !== currentUser.branchId) {
+    throw new ForbiddenException(
+      "Vous ne pouvez pas consulter les tontines d'un client d'une autre agence",
+    );
+  }
+
+  return this.prisma.tontineCycle.findMany({
+    where: { clientId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+  
 }
