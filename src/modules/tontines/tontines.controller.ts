@@ -6,7 +6,6 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { AuditResource } from '../../common/decorators/audit-resource.decorator';
 import { Patch, Param } from '@nestjs/common';
 import { MissedCollectionSchedulerService } from './missed-collection-scheduler.service';
-import { Get } from '@nestjs/common';
 import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../types/express';
@@ -37,7 +36,7 @@ export class TontinesController {
 @ApiOperation({ summary: 'Récupérer les cycles de tontine d’un client' })
 findByClient(
   @Param('clientId') clientId: string,
-  @CurrentUser() user: CurrentUser,
+  @CurrentUser() user: CurrentUserType,
 ) {
   return this.tontinesService.findByClient(clientId, user);
 }
