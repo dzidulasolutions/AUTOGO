@@ -170,14 +170,14 @@ export class LoansService {
     };
   }
 
-  private ensureHasBranchOrPrivileged(currentUser: CurrentUser): void {
-    this.ensureHasBranchOrPrivileged(currentUser);
-    if (!this.isPrivileged(currentUser.role) && !currentUser.branchId) {
-      throw new ForbiddenException(
-        "Votre compte n'est rattache a aucune agence, contactez un administrateur",
-      );
-    }
+private ensureHasBranchOrPrivileged(currentUser: CurrentUser): void {
+  if (!this.isPrivileged(currentUser.role) && !currentUser.branchId) {
+    throw new ForbiddenException(
+      "Votre compte n'est rattache a aucune agence, contactez un administrateur",
+    );
   }
+}
+  
 
   async findAll(currentUser: CurrentUser, filters: LoanFiltersDto) {
     const { page = 1, limit = 20, clientId, status } = filters;
