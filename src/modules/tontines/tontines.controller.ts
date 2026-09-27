@@ -30,6 +30,18 @@ export class TontinesController {
     return this.tontinesService.createCycle(dto, user);
   }
 
+  @Get('cycles')
+@RequirePermissions('tontines:create')
+@ApiOperation({ summary: 'Lister tous les cycles de tontine' })
+findAll(
+  @Query('page') page?: number,
+  @Query('limit') limit?: number,
+  @Query('status') status?: string,
+  @CurrentUser() user?: CurrentUser,
+) {
+  return this.tontinesService.findAll(user, Number(page) || 1, Number(limit) || 20, status);
+}
+
   @Get('cycles/by-client/:clientId')
 @RequirePermissions('tontines:create')
 @AuditResource('TontineCycle')
