@@ -173,4 +173,22 @@ export class SavingsService {
 
   return account;
 }
+  async findAll(currentUser: CurrentUser, page = 1, limit = 20) {
+  const where = this.isPrivileged(currentUser.role)
+    ? {}
+    : { branchId: currentUser.branchId as string };
+
+  const [items, total] = await Promise.all([
+    this.prisma.savingsAccount.findMany({
+      where,
+      include: { client: true },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    }),
+    this.prisma.savingsAccount.count({ where }),
+  ]);
+
+  return { items, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+}
 }
