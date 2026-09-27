@@ -12,6 +12,7 @@ import { generatePassbookPdf } from '../notifications/generators/passbook.genera
 import { ResendEmailAdapter } from '../notifications/adapters/resend-email.adapter';
 import { SettingsService } from '../settings/settings.service';
 import { TransactionTypeDto } from '../transactions/dto/create-transaction.dto';
+import { TontineCycleStatus } from '../../../generated/prisma/client';
 
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
@@ -303,7 +304,12 @@ export class TontinesService {
   });
 }
 
-async findAll(currentUser: CurrentUser, page = 1, limit = 20, status?: string) {
+async findAll(
+  currentUser: CurrentUser,
+  page = 1,
+  limit = 20,
+  status?: TontineCycleStatus,
+) {
   const where = {
     ...(this.isPrivileged(currentUser.role) ? {} : { branchId: currentUser.branchId as string }),
     ...(status && { status }),
