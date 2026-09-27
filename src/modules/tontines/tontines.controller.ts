@@ -9,6 +9,7 @@ import { MissedCollectionSchedulerService } from './missed-collection-scheduler.
 import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../types/express';
+import { TontineCycleStatus } from '../../../generated/prisma/client';
 
 @ApiTags('tontines')
 @ApiBearerAuth()
