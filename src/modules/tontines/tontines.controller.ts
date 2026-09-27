@@ -39,7 +39,12 @@ findAll(
   @Query('status') status: string | undefined,
   @CurrentUser() user: CurrentUserType,
 ) {
-  return this.tontinesService.findAll(user, Number(page) || 1, Number(limit) || 20, status);
+  return this.tontinesService.findAll(
+    user,
+    Number(page) || 1,
+    Number(limit) || 20,
+    status as TontineCycleStatus | undefined,
+  );
 }
 
   @Get('cycles/by-client/:clientId')
