@@ -1,5 +1,5 @@
 import { InterestSchedulerService } from './interest-scheduler.service';
-import { Controller, Post, Body, Param, Get } from '@nestjs/common';
+import { Controller, Post, Body, Param, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SavingsService } from './savings.service';
 import { OpenAccountDto } from './dto/open-account.dto';
@@ -34,9 +34,9 @@ export class SavingsController {
 @RequirePermissions('savings:create')
 @ApiOperation({ summary: 'Lister tous les comptes épargne' })
 findAll(
-  @Query('page') page?: number,
-  @Query('limit') limit?: number,
-  @CurrentUser() user?: CurrentUser,
+  @Query('page') page: string | undefined,
+  @Query('limit') limit: string | undefined,
+  @CurrentUser() user: CurrentUserType,
 ) {
   return this.savingsService.findAll(user, Number(page) || 1, Number(limit) || 20);
 }
