@@ -302,5 +302,25 @@ export class TontinesService {
     orderBy: { createdAt: 'desc' },
   });
 }
+
+async findAll(currentUser: CurrentUser, page = 1, limit = 20, status?: string) {
+  const where = {
+    ...(this.isPrivileged(currentUser.role) ? {} : { branchId: currentUser.branchId as string }),
+    ...(status && { status }),
+  };
+
+  const [items, total] = await Promise.all([
+    this.prisma.tontineCycle.findMany({
+      where,
+      include: { client: true },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    }),
+    this.prisma.tontineCycle.count({ where }),
+  ]);
+
+  return { items, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+}
   
 }
