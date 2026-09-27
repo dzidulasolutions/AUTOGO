@@ -30,6 +30,17 @@ export class SavingsController {
     return this.savingsService.openAccount(dto, user);
   }
 
+  @Get('accounts')
+@RequirePermissions('savings:create')
+@ApiOperation({ summary: 'Lister tous les comptes épargne' })
+findAll(
+  @Query('page') page?: number,
+  @Query('limit') limit?: number,
+  @CurrentUser() user?: CurrentUser,
+) {
+  return this.savingsService.findAll(user, Number(page) || 1, Number(limit) || 20);
+}
+
   @Get('accounts/by-client/:clientId')
 @RequirePermissions('savings:create')
 @AuditResource('SavingsAccount')
