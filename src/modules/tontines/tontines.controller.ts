@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res, Get } from '@nestjs/common';
+import { Controller, Post, Body, Res, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TontinesService } from './tontines.service';
 import { CreateCycleDto } from './dto/create-cycle.dto';
@@ -37,7 +37,7 @@ findAll(
   @Query('page') page?: number,
   @Query('limit') limit?: number,
   @Query('status') status?: string,
-  @CurrentUser() user?: CurrentUser,
+  @CurrentUserType() user?: CurrentUser,
 ) {
   return this.tontinesService.findAll(user, Number(page) || 1, Number(limit) || 20, status);
 }
