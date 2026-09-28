@@ -4,13 +4,19 @@ import { CacheService } from './cache.service';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Prisma } from '../../../generated/prisma/client';
+
 type CurrentUser = { id: string; role: string; branchId: string | null };
 
 // Les requêtes SQL brutes sur des vues Postgres renvoient parfois des BigInt
-// (COUNT, SUM sur bigint), que JSON.stringify ne sait pas sérialiser.
+// (COUNT, SUM sur bigint) et des Decimal (montants), que JSON.stringify ne
+// sait pas sérialiser tels quels.
 function sanitizeBigInt(value: unknown): unknown {
   if (typeof value === 'bigint') {
     return Number(value);
+  }
+  if (value instanceof Prisma.Decimal) {
+    return Number(value.toString());
   }
   if (Array.isArray(value)) {
     return value.map((v) => sanitizeBigInt(v));
@@ -22,7 +28,6 @@ function sanitizeBigInt(value: unknown): unknown {
   }
   return value;
 }
-
 
 @Injectable()
 export class DashboardService {
@@ -37,56 +42,57 @@ export class DashboardService {
   }
 
   async getBranchSummary(currentUser: CurrentUser, targetBranchId?: string) {
-  const branchId = this.isPrivileged(currentUser.role)
-    ? targetBranchId
-    : currentUser.branchId;
+    const branchId = this.isPrivileged(currentUser.role)
+      ? targetBranchId
+      : currentUser.branchId;
 
-  if (!branchId) {
-    throw new Error('Agence non determinee');
+    if (!branchId) {
+      throw new Error('Agence non determinee');
+    }
+
+    const cacheKey = `dashboard:branch-summary:${branchId}`;
+    const cached = await this.cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const raw = await this.prisma.$queryRaw`
+      SELECT * FROM v_branch_daily_summary WHERE branch_id::text = ${branchId}
+      ORDER BY summary_date DESC LIMIT 30
+    `;
+    const result = sanitizeBigInt(raw);
+
+    await this.cache.set(cacheKey, result, 300);
+    return result;
   }
-
-  const cacheKey = `dashboard:branch-summary:${branchId}`;
-  const cached = await this.cache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  const raw = await this.prisma.$queryRaw`
-    SELECT * FROM v_branch_daily_summary WHERE branch_id = ${branchId}::uuid
-    ORDER BY summary_date DESC LIMIT 30
-  `;
-  const result = sanitizeBigInt(raw);
-
-  await this.cache.set(cacheKey, result, 300);
-  return result;
-}
 
   async getPortfolioAtRisk(currentUser: CurrentUser) {
-  const cacheKey = this.isPrivileged(currentUser.role)
-    ? 'dashboard:portfolio-risk:all'
-    : `dashboard:portfolio-risk:${currentUser.branchId}`;
+    const cacheKey = this.isPrivileged(currentUser.role)
+      ? 'dashboard:portfolio-risk:all'
+      : `dashboard:portfolio-risk:${currentUser.branchId}`;
 
-  const cached = await this.cache.get(cacheKey);
-  if (cached) {
-    return cached;
+    const cached = await this.cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const raw = this.isPrivileged(currentUser.role)
+      ? await this.prisma.$queryRaw`SELECT * FROM v_loan_portfolio_at_risk`
+      : await this.prisma
+          .$queryRaw`SELECT * FROM v_loan_portfolio_at_risk WHERE branch_id::text = ${currentUser.branchId}`;
+    const result = sanitizeBigInt(raw);
+
+    await this.cache.set(cacheKey, result, 300);
+    return result;
   }
-
-  const raw = this.isPrivileged(currentUser.role)
-    ? await this.prisma.$queryRaw`SELECT * FROM v_loan_portfolio_at_risk`
-    : await this.prisma
-        .$queryRaw`SELECT * FROM v_loan_portfolio_at_risk WHERE branch_id = ${currentUser.branchId}::uuid`;
-  const result = sanitizeBigInt(raw);
-
-  await this.cache.set(cacheKey, result, 300);
-  return result;
-}
 
   async getMyDailyCollections(currentUser: CurrentUser) {
     // Vue specifiquement pensee pour un Agent : pas de cache ici, doit rester a jour en temps reel
     // (un agent valide une collecte et doit voir la liste se rafraichir immediatement)
-    return this.prisma.$queryRaw`
-    SELECT * FROM v_agent_daily_collections WHERE assigned_agent_id = ${currentUser.id}
-  `;
+    const raw = await this.prisma.$queryRaw`
+      SELECT * FROM v_agent_daily_collections WHERE assigned_agent_id = ${currentUser.id}
+    `;
+    return sanitizeBigInt(raw);
   }
 
   async requestMonthlyReport(
