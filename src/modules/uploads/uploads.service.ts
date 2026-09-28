@@ -12,11 +12,17 @@ export class UploadsService {
       throw new BadRequestException('Aucun fichier fourni');
     }
 
-    const resourceType = file.mimetype === 'application/pdf' ? 'raw' : 'image';
+    const isPdf = file.mimetype === 'application/pdf';
+    const resourceType = isPdf ? 'raw' : 'image';
 
     return new Promise<string>((resolve, reject) => {
       const uploadStream = this.cloudinary.uploader.upload_stream(
-        { folder: 'autogo', resource_type: resourceType, access_mode: 'public' },
+        {
+          folder: 'autogo',
+          resource_type: resourceType,
+          access_mode: 'public',
+          ...(isPdf ? { format: 'pdf' } : {}),
+        },
         (error, result: UploadApiResponse | undefined) => {
           if (error || !result) {
             this.logger.error('Erreur Cloudinary', error);
