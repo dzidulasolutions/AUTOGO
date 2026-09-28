@@ -5,6 +5,23 @@ import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
 type CurrentUser = { id: string; role: string; branchId: string | null };
+// Les requêtes SQL brutes sur des vues Postgres renvoient parfois des BigInt
+// (COUNT, SUM sur bigint), que JSON.stringify ne sait pas sérialiser.
+function sanitizeBigInt<T>(value: T): T {
+  if (typeof value === 'bigint') {
+    return Number(value) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => sanitizeBigInt(v)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, sanitizeBigInt(v)]),
+    ) as T;
+  }
+  return value;
+}
+
 
 @Injectable()
 export class DashboardService {
@@ -19,48 +36,49 @@ export class DashboardService {
   }
 
   async getBranchSummary(currentUser: CurrentUser, targetBranchId?: string) {
-    // Un Manager ne peut consulter que sa propre agence ; Admin peut cibler n'importe laquelle
-    const branchId = this.isPrivileged(currentUser.role)
-      ? targetBranchId
-      : currentUser.branchId;
+  const branchId = this.isPrivileged(currentUser.role)
+    ? targetBranchId
+    : currentUser.branchId;
 
-    if (!branchId) {
-      throw new Error('Agence non determinee');
-    }
-
-    const cacheKey = `dashboard:branch-summary:${branchId}`;
-    const cached = await this.cache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const result = await this.prisma.$queryRaw`
-      SELECT * FROM v_branch_daily_summary WHERE branch_id = ${branchId}::uuid
-      ORDER BY summary_date DESC LIMIT 30
-    `;
-
-    await this.cache.set(cacheKey, result, 300); // cache 5 minutes
-    return result;
+  if (!branchId) {
+    throw new Error('Agence non determinee');
   }
+
+  const cacheKey = `dashboard:branch-summary:${branchId}`;
+  const cached = await this.cache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const raw = await this.prisma.$queryRaw`
+    SELECT * FROM v_branch_daily_summary WHERE branch_id = ${branchId}::uuid
+    ORDER BY summary_date DESC LIMIT 30
+  `;
+  const result = sanitizeBigInt(raw);
+
+  await this.cache.set(cacheKey, result, 300);
+  return result;
+}
 
   async getPortfolioAtRisk(currentUser: CurrentUser) {
-    const cacheKey = this.isPrivileged(currentUser.role)
-      ? 'dashboard:portfolio-risk:all'
-      : `dashboard:portfolio-risk:${currentUser.branchId}`;
+  const cacheKey = this.isPrivileged(currentUser.role)
+    ? 'dashboard:portfolio-risk:all'
+    : `dashboard:portfolio-risk:${currentUser.branchId}`;
 
-    const cached = await this.cache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const result = this.isPrivileged(currentUser.role)
-      ? await this.prisma.$queryRaw`SELECT * FROM v_loan_portfolio_at_risk`
-      : await this.prisma
-          .$queryRaw`SELECT * FROM v_loan_portfolio_at_risk WHERE branch_id = ${currentUser.branchId}::uuid`;
-
-    await this.cache.set(cacheKey, result, 300);
-    return result;
+  const cached = await this.cache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
+
+  const raw = this.isPrivileged(currentUser.role)
+    ? await this.prisma.$queryRaw`SELECT * FROM v_loan_portfolio_at_risk`
+    : await this.prisma
+        .$queryRaw`SELECT * FROM v_loan_portfolio_at_risk WHERE branch_id = ${currentUser.branchId}::uuid`;
+  const result = sanitizeBigInt(raw);
+
+  await this.cache.set(cacheKey, result, 300);
+  return result;
+}
 
   async getMyDailyCollections(currentUser: CurrentUser) {
     // Vue specifiquement pensee pour un Agent : pas de cache ici, doit rester a jour en temps reel
