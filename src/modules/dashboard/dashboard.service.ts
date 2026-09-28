@@ -5,19 +5,20 @@ import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
 type CurrentUser = { id: string; role: string; branchId: string | null };
+
 // Les requêtes SQL brutes sur des vues Postgres renvoient parfois des BigInt
 // (COUNT, SUM sur bigint), que JSON.stringify ne sait pas sérialiser.
-function sanitizeBigInt<T>(value: T): T {
+function sanitizeBigInt(value: unknown): unknown {
   if (typeof value === 'bigint') {
-    return Number(value) as unknown as T;
+    return Number(value);
   }
   if (Array.isArray(value)) {
-    return value.map((v) => sanitizeBigInt(v)) as unknown as T;
+    return value.map((v) => sanitizeBigInt(v));
   }
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value).map(([k, v]) => [k, sanitizeBigInt(v)]),
-    ) as T;
+    );
   }
   return value;
 }
