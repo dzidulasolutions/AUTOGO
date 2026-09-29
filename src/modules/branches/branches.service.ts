@@ -43,11 +43,26 @@ export class BranchesService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
-    await this.prisma.branch.update({
-      where: { id },
-      data: { deletedAt: new Date(), status: 'INACTIVE' },
-    });
-    return { message: 'Agence desactivee avec succes' };
+  await this.findOne(id);
+  await this.prisma.branch.update({
+    where: { id },
+    data: { deletedAt: new Date(), status: 'INACTIVE' },
+  });
+  return { message: 'Agence desactivee avec succes' };
+}
+
+async reactivate(id: string) {
+  const branch = await this.prisma.branch.findUnique({ where: { id } });
+  if (!branch) {
+    throw new NotFoundException('Agence introuvable');
   }
+  if (!branch.deletedAt) {
+    throw new ConflictException('Cette agence est deja active');
+  }
+
+  return this.prisma.branch.update({
+    where: { id },
+    data: { deletedAt: null, status: 'ACTIVE' },
+  });
+}
 }
