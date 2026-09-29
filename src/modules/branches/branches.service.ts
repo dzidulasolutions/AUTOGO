@@ -23,9 +23,11 @@ export class BranchesService {
     return this.prisma.branch.create({ data: dto });
   }
 
-  async findAll() {
-    return this.prisma.branch.findMany({ where: { deletedAt: null } });
-  }
+async findAll(includeInactive = false) {
+  return this.prisma.branch.findMany({
+    where: includeInactive ? {} : { deletedAt: null },
+  });
+}
 
   async findOne(id: string) {
     const branch = await this.prisma.branch.findFirst({
