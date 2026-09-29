@@ -30,9 +30,10 @@ export class BranchesController {
 
   @Get()
   @ApiOperation({ summary: 'Lister les agences' })
-  findAll() {
-    return this.branchesService.findAll();
-  }
+@RequirePermissions('branches:create')
+findAll(@Query('includeInactive') includeInactive?: string) {
+  return this.branchesService.findAll(includeInactive === 'true');
+}
 
   @Get(':id')
   @ApiOperation({ summary: 'Consulter une agence' })
@@ -47,6 +48,13 @@ export class BranchesController {
   update(@Param('id') id: string, @Body() dto: UpdateBranchDto) {
     return this.branchesService.update(id, dto);
   }
+
+  @Patch(':id/reactivate')
+@RequirePermissions('branches:create')
+@ApiOperation({ summary: 'Reactiver une agence desactivee' })
+reactivate(@Param('id') id: string) {
+  return this.branchesService.reactivate(id);
+}
 
   @Delete(':id')
   @RequirePermissions('branches:delete')
