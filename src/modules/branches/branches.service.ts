@@ -67,4 +67,28 @@ async reactivate(id: string) {
     data: { deletedAt: null, status: 'ACTIVE' },
   });
 }
+
+async getStats(id: string) {
+  await this.findOne(id);
+
+  const [clientCount, usersByRole] = await Promise.all([
+    this.prisma.client.count({ where: { branchId: id, deletedAt: null } }),
+    this.prisma.user.groupBy({
+      by: ['roleId'],
+      where: { branchId: id, deletedAt: null },
+      _count: { id: true },
+    }),
+  ]);
+
+  const roles = await this.prisma.role.findMany();
+  const roleNameById = new Map(roles.map((r) => [r.id, r.name]));
+
+  const staffByRole: Record<string, number> = {};
+  for (const row of usersByRole) {
+    const roleName = roleNameById.get(row.roleId) ?? 'Inconnu';
+    staffByRole[roleName] = row._count.id;
+  }
+
+  return { clientCount, staffByRole };
+}
 }
