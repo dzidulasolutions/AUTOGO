@@ -42,6 +42,13 @@ findAll(@Query('includeInactive') includeInactive?: string) {
     return this.branchesService.findOne(id);
   }
 
+  @Get(':id/stats')
+@RequirePermissions('branches:create')
+@ApiOperation({ summary: 'Statistiques d\'une agence (clients, staff par rôle)' })
+getStats(@Param('id') id: string) {
+  return this.branchesService.getStats(id);
+}
+
   @Patch(':id')
   @RequirePermissions('branches:update')
   @AuditResource('Branch')
