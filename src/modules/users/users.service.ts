@@ -54,20 +54,20 @@ export class UsersService {
     return this.excludePassword(user);
   }
 
-  async findAll(currentUser: CurrentUser): Promise<SafeUser[]> {
-    this.ensureHasBranchOrPrivileged(currentUser);
-    const privileged = this.isPrivileged(currentUser.role);
+  async findAll(currentUser: CurrentUser, includeInactive = false): Promise<SafeUser[]> {
+  this.ensureHasBranchOrPrivileged(currentUser);
+  const privileged = this.isPrivileged(currentUser.role);
 
-    const users = await this.prisma.user.findMany({
-      where: {
-        deletedAt: null,
-        ...(!privileged && { branchId: currentUser.branchId }),
-      },
-      include: { role: true, branch: true },
-    });
+  const users = await this.prisma.user.findMany({
+    where: {
+      ...(includeInactive ? {} : { deletedAt: null }),
+      ...(!privileged && { branchId: currentUser.branchId }),
+    },
+    include: { role: true, branch: true },
+  });
 
-    return users.map((u) => this.excludePassword(u));
-  }
+  return users.map((u) => this.excludePassword(u));
+}
 
   async findOne(id: string, currentUser: CurrentUser): Promise<SafeUser> {
     this.ensureHasBranchOrPrivileged(currentUser);
@@ -103,15 +103,15 @@ export class UsersService {
     return this.excludePassword(user);
   }
 
-  async remove(id: string, currentUser: CurrentUser) {
-    await this.findOne(id, currentUser);
+ async remove(id: string, currentUser: CurrentUser) {
+  await this.findOne(id, currentUser);
 
-    await this.prisma.user.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-    return { message: 'Utilisateur desactive avec succes' };
-  }
+  await this.prisma.user.update({
+    where: { id },
+    data: { deletedAt: new Date(), status: 'INACTIVE' },
+  });
+  return { message: 'Utilisateur desactive avec succes' };
+}
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findFirst({
@@ -172,4 +172,28 @@ export class UsersService {
     const { password, ...rest } = user;
     return rest;
   }
+  async reactivate(id: string, currentUser: CurrentUser): Promise<SafeUser> {
+  this.ensureHasBranchOrPrivileged(currentUser);
+
+  const user = await this.prisma.user.findUnique({ where: { id } });
+  if (!user) {
+    throw new NotFoundException('Utilisateur introuvable');
+  }
+  if (!user.deletedAt) {
+    throw new ConflictException('Cet utilisateur est deja actif');
+  }
+
+  const privileged = this.isPrivileged(currentUser.role);
+  if (!privileged && user.branchId !== currentUser.branchId) {
+    throw new ForbiddenException(
+      "Vous ne pouvez pas reactiver un utilisateur d'une autre agence",
+    );
+  }
+
+  const updated = await this.prisma.user.update({
+    where: { id },
+    data: { deletedAt: null, status: 'ACTIVE' },
+  });
+  return this.excludePassword(updated);
+}
 }
