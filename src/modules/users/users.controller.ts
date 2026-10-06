@@ -31,11 +31,14 @@ export class UsersController {
     return this.usersService.create(dto);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Lister les utilisateurs' })
-  findAll(@CurrentUser() user: CurrentUserType) {
-    return this.usersService.findAll(user);
-  }
+@Get()
+@ApiOperation({ summary: 'Lister les utilisateurs' })
+findAll(
+  @Query('includeInactive') includeInactive: string | undefined,
+  @CurrentUser() user: CurrentUserType,
+) {
+  return this.usersService.findAll(user, includeInactive === 'true');
+}
 
   @Get('me')
   @ApiOperation({ summary: 'Consulter mon propre profil' })
@@ -80,6 +83,12 @@ export class UsersController {
   ) {
     return this.usersService.update(id, dto, user);
   }
+
+  @Patch(':id/reactivate')
+@ApiOperation({ summary: 'Reactiver un utilisateur desactive' })
+reactivate(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+  return this.usersService.reactivate(id, user);
+}
 
   @Delete(':id')
   @RequirePermissions('users:delete')
