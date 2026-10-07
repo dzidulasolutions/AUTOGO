@@ -140,13 +140,12 @@ return transaction;
   }
 
   async cancelTransaction(
-    id: string,
-    dto: CancelTransactionDto,
-    currentUser: CurrentUser,
-  ) {
-    const transaction = await this.prisma.transaction.findUnique({
-      where: { id },
-    });
+  id: string,
+  dto: CancelTransactionDto,
+  currentUser: CurrentUser,
+) {
+  return this.prisma.$transaction(async (tx) => {
+    const transaction = await tx.transaction.findUnique({ where: { id } });
 
     if (!transaction) {
       throw new NotFoundException('Transaction introuvable');
@@ -156,7 +155,41 @@ return transaction;
       throw new BadRequestException('Cette transaction est deja annulee');
     }
 
-    return this.prisma.transaction.update({
+    if (transaction.type !== 'DEPOSIT' && transaction.type !== 'WITHDRAWAL') {
+      throw new BadRequestException(
+        "Seules les transactions de depot ou retrait peuvent etre annulees pour l'instant",
+      );
+    }
+
+    // Retrouve le compte epargne concerne par cette transaction, verrouille la ligne
+    const accounts = await tx.$queryRaw<{ id: string; balance: string }[]>`
+      SELECT id, balance FROM savings_accounts
+      WHERE client_id = ${transaction.clientId}::uuid AND status = 'ACTIVE'
+      FOR UPDATE
+    `;
+    const account = accounts[0];
+    if (!account) {
+      throw new NotFoundException(
+        'Compte epargne introuvable pour ce client, annulation impossible',
+      );
+    }
+
+    // Inverse l'effet original : un depot annule retire le montant, un retrait annule le restitue
+    const isDeposit = transaction.type === 'DEPOSIT';
+    if (isDeposit && Number(account.balance) < Number(transaction.amount)) {
+      throw new BadRequestException(
+        'Solde insuffisant pour annuler ce depot (des operations ont eu lieu depuis)',
+      );
+    }
+
+    await tx.savingsAccount.update({
+      where: { id: account.id },
+      data: isDeposit
+        ? { balance: { decrement: transaction.amount } }
+        : { balance: { increment: transaction.amount } },
+    });
+
+    return tx.transaction.update({
       where: { id },
       data: {
         status: 'CANCELLED',
@@ -167,5 +200,6 @@ return transaction;
           : `Annulee: ${dto.reason}`,
       },
     });
-  }
+  });
+}
 }
