@@ -162,17 +162,14 @@ return transaction;
     }
 
     // Retrouve le compte epargne concerne par cette transaction, verrouille la ligne
-    const accounts = await tx.$queryRaw<{ id: string; balance: string }[]>`
-      SELECT id, balance FROM savings_accounts
-      WHERE client_id = ${transaction.clientId}::uuid AND status = 'ACTIVE'
-      FOR UPDATE
-    `;
-    const account = accounts[0];
-    if (!account) {
-      throw new NotFoundException(
-        'Compte epargne introuvable pour ce client, annulation impossible',
-      );
-    }
+const account = await tx.savingsAccount.findFirst({
+  where: { clientId: transaction.clientId, status: 'ACTIVE' },
+});
+if (!account) {
+  throw new NotFoundException(
+    'Compte epargne introuvable pour ce client, annulation impossible',
+  );
+}
 
     // Inverse l'effet original : un depot annule retire le montant, un retrait annule le restitue
     const isDeposit = transaction.type === 'DEPOSIT';
