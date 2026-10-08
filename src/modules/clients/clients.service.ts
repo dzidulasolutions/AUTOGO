@@ -102,30 +102,61 @@ export class ClientsService {
   }
 
   async findAll(
-    currentUser: CurrentUser,
-    pagination: { page: number; limit: number },
-  ) {
-    this.ensureHasBranchOrPrivileged(currentUser);
-    const { page, limit } = pagination;
-    const skip = (page - 1) * limit;
-    const where = { deletedAt: null, ...this.buildScopeWhere(currentUser) };
+  currentUser: CurrentUser,
+  pagination: { page: number; limit: number },
+  includeInactive = false,
+) {
+  this.ensureHasBranchOrPrivileged(currentUser);
+  const { page, limit } = pagination;
+  const skip = (page - 1) * limit;
+  const where = {
+    ...(includeInactive ? {} : { deletedAt: null }),
+    ...this.buildScopeWhere(currentUser),
+  };
 
-    const [clients, total] = await Promise.all([
-      this.prisma.client.findMany({
-        where,
-        include: { branch: true },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.client.count({ where }),
-    ]);
+  const [clients, total] = await Promise.all([
+    this.prisma.client.findMany({
+      where,
+      include: { branch: true },
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    }),
+    this.prisma.client.count({ where }),
+  ]);
 
-    return {
-      items: clients,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    };
+  return {
+    items: clients,
+    meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+  };
+}
+
+async reactivate(id: string, currentUser: CurrentUser) {
+  this.ensureHasBranchOrPrivileged(currentUser);
+
+  const client = await this.prisma.client.findUnique({ where: { id } });
+  if (!client) {
+    throw new NotFoundException('Client introuvable');
   }
+  if (!client.deletedAt) {
+    throw new BadRequestException('Ce client est deja actif');
+  }
+
+  const scoped = this.buildScopeWhere(currentUser);
+  if (
+    (scoped.branchId && client.branchId !== scoped.branchId) ||
+    ('assignedAgentId' in scoped && client.assignedAgentId !== scoped.assignedAgentId)
+  ) {
+    throw new ForbiddenException(
+      "Vous ne pouvez pas reactiver un client hors de votre perimetre",
+    );
+  }
+
+  return this.prisma.client.update({
+    where: { id },
+    data: { deletedAt: null },
+  });
+}
 
   async findOne(id: string, currentUser: CurrentUser) {
     this.ensureHasBranchOrPrivileged(currentUser);
