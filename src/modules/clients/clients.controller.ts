@@ -32,17 +32,19 @@ export class ClientsController {
     return this.clientsService.create(dto, user);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Lister les clients (pagine)' })
-  findAll(
-    @Query() pagination: PaginationDto,
-    @CurrentUser() user: CurrentUserType,
-  ) {
-    return this.clientsService.findAll(user, {
-      page: pagination.page!,
-      limit: pagination.limit!,
-    });
-  }
+@Get()
+@ApiOperation({ summary: 'Lister les clients (pagine)' })
+findAll(
+  @Query() pagination: PaginationDto,
+  @Query('includeInactive') includeInactive: string | undefined,
+  @CurrentUser() user: CurrentUserType,
+) {
+  return this.clientsService.findAll(
+    user,
+    { page: pagination.page!, limit: pagination.limit! },
+    includeInactive === 'true',
+  );
+}
 
   @Get('search')
   @ApiOperation({ summary: 'Rechercher un client (nom, telephone, numero)' })
@@ -67,6 +69,14 @@ export class ClientsController {
   ) {
     return this.clientsService.update(id, dto, user);
   }
+
+  @Patch(':id/reactivate')
+@RequirePermissions('clients:update')
+@AuditResource('Client')
+@ApiOperation({ summary: 'Reactiver un client desactive' })
+reactivate(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+  return this.clientsService.reactivate(id, user);
+}
 
   @Delete(':id')
   @RequirePermissions('clients:delete')
