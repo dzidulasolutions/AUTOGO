@@ -36,13 +36,12 @@ export class ClientsController {
 @ApiOperation({ summary: 'Lister les clients (pagine)' })
 findAll(
   @Query() pagination: PaginationDto,
-  @Query('includeInactive') includeInactive: string | undefined,
   @CurrentUser() user: CurrentUserType,
 ) {
   return this.clientsService.findAll(
     user,
     { page: pagination.page!, limit: pagination.limit! },
-    includeInactive === 'true',
+    pagination.includeInactive === 'true',
   );
 }
 
