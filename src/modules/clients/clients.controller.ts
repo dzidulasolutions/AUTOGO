@@ -51,11 +51,11 @@ findAll(
     return this.clientsService.search(query, user);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Consulter un client' })
-  findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
-    return this.clientsService.findOne(id, user);
-  }
+@Get(':id')
+@ApiOperation({ summary: 'Consulter un client' })
+findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+  return this.clientsService.findOne(id, user, true);
+}
 
   @Patch(':id')
   @RequirePermissions('clients:update')
