@@ -158,23 +158,24 @@ async reactivate(id: string, currentUser: CurrentUser) {
   });
 }
 
-  async findOne(id: string, currentUser: CurrentUser) {
-    this.ensureHasBranchOrPrivileged(currentUser);
-    const where = { id, deletedAt: null, ...this.buildScopeWhere(currentUser) };
+  async findOne(id: string, currentUser: CurrentUser, includeInactive = false) {
+  this.ensureHasBranchOrPrivileged(currentUser);
+  const where = {
+    id,
+    ...(includeInactive ? {} : { deletedAt: null }),
+    ...this.buildScopeWhere(currentUser),
+  };
 
-    const client = await this.prisma.client.findFirst({
-      where,
-      include: {
-        branch: true,
-        // TODO Phase 6/7 : ajouter ici { tontineCycles: true, loans: true } une fois ces modules construits
-      },
-    });
+  const client = await this.prisma.client.findFirst({
+    where,
+    include: { branch: true },
+  });
 
-    if (!client) {
-      throw new NotFoundException('Client introuvable');
-    }
-    return client;
+  if (!client) {
+    throw new NotFoundException('Client introuvable');
   }
+  return client;
+}
 
   async update(id: string, dto: UpdateClientDto, currentUser: CurrentUser) {
     await this.findOne(id, currentUser); // applique deja le scoping et leve 404 si hors perimetre
